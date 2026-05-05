@@ -9,7 +9,7 @@ from datetime import date
 # ─────────────────────────────────────────────
 st.set_page_config(
     page_title="Akademik Renkler Derneği",
-    page_icon="🦚",
+    page_icon="logo.jpg",
     layout="centered",
     initial_sidebar_state="collapsed",
 )
