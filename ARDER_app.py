@@ -34,7 +34,7 @@ class Task(Base):
     title = Column(String)
     description = Column(String)
     priority = Column(String)
-    points = Column(Integer, default=10) # YENİ: Görev Puanı Sütunu
+    points = Column(Integer, default=10) # Görev Puanı Sütunu
     status = Column(String, default="Bekliyor") # Bekliyor veya Tamamlandı
 
 # --- 3. VERİTABANI BAŞLATMA VE GÜNCELLEME ---
@@ -46,7 +46,7 @@ def init_db():
             conn.execute(text("ALTER TABLE tasks ADD COLUMN IF NOT EXISTS points INTEGER DEFAULT 10;"))
             conn.commit()
     except Exception as e:
-        pass # Eğer zaten varsa veya SQLite kullanılıyorsa yoksay
+        pass 
 
 init_db()
 
@@ -58,15 +58,63 @@ if 'username' not in st.session_state:
 if 'role' not in st.session_state:
     st.session_state.role = ""
 
-# Veritabanı oturumu açma/kapatma aracı
 def get_session():
     return SessionLocal()
+
+# --- LOGO AYARI ---
+# DİKKAT: Buraya derneğinin gerçek logosunun internet linkini koyabilirsin. 
+# Eğer GitHub'a "logo.png" diye bir dosya yüklersen, buraya sadece "logo.png" yazman yeterli.
+LOGO_URL = "https://via.placeholder.com/600x200.png?text=ARDER+LOGOSU" 
+
+# --- YARDIMCI FONKSİYON: BASAMAKLI LİDERLİK TABLOSU ---
+def display_leaderboard(db):
+    st.subheader("Liderlik Tablosu 🏆")
+    all_users = db.query(User).order_by(User.points.desc()).all()
+    
+    if not all_users:
+        st.info("Henüz sistemde puanı olan kullanıcı yok.")
+        return
+
+    # KÜRSÜ (BASAMAK) GÖRÜNÜMÜ - İLK 3 KİŞİ
+    if len(all_users) >= 3:
+        col2, col1, col3 = st.columns(3)
+        with col2:
+            st.info(f"### 🥈 2. {all_users[1].username}\n**{all_users[1].points} Puan**")
+        with col1:
+            st.success(f"## 🥇 1. {all_users[0].username}\n**{all_users[0].points} Puan**")
+        with col3:
+            st.warning(f"#### 🥉 3. {all_users[2].username}\n**{all_users[2].points} Puan**")
+    elif len(all_users) == 2:
+        col1, col2 = st.columns(2)
+        with col1:
+            st.success(f"## 🥇 1. {all_users[0].username}\n**{all_users[0].points} Puan**")
+        with col2:
+            st.info(f"### 🥈 2. {all_users[1].username}\n**{all_users[1].points} Puan**")
+    elif len(all_users) == 1:
+        st.success(f"## 🥇 1. {all_users[0].username}\n**{all_users[0].points} Puan**")
+    
+    st.divider()
+    
+    # Tüm Kullanıcıların Listesi
+    user_data = []
+    for i, u in enumerate(all_users):
+        user_data.append([i+1, u.username, u.role, u.points])
+    df_users = pd.DataFrame(user_data, columns=["Sıra", "Kullanıcı", "Rol", "Puan"])
+    # İndeks numarasını gizleyip sadece verileri gösteriyoruz
+    st.dataframe(df_users, use_container_width=True, hide_index=True)
+
 
 # --- 5. ARAYÜZ VE FONKSİYONLAR ---
 db = get_session()
 
 # GİRİŞ VE KAYIT EKRANI
 if not st.session_state.logged_in:
+    
+    # ANA EKRAN LOGOSU
+    col_logo1, col_logo2, col_logo3 = st.columns([1, 2, 1])
+    with col_logo2:
+        st.image(LOGO_URL, use_container_width=True)
+        
     st.title("ARDER Görev Yönetim Sistemine Hoş Geldiniz")
     
     tab1, tab2 = st.tabs(["Giriş Yap", "Kayıt Ol"])
@@ -109,11 +157,14 @@ if not st.session_state.logged_in:
 else:
     # Sol Menü (Sidebar)
     with st.sidebar:
+        # MENÜ LOGOSU
+        st.image(LOGO_URL, use_container_width=True)
+        st.divider()
+        
         st.title("👤 Profilim")
         st.write(f"**Kullanıcı:** {st.session_state.username}")
         st.write(f"**Rol:** {st.session_state.role}")
         
-        # Güncel Puanı Çekme
         current_user = db.query(User).filter(User.username == st.session_state.username).first()
         st.write(f"**Puan:** {current_user.points}")
         
@@ -143,7 +194,7 @@ else:
                 task_desc = st.text_area("Görev Açıklaması")
                 task_priority = st.selectbox("Öncelik", ["Düşük", "Orta", "Yüksek", "Acil"])
                 
-                # YENİ ÖZELLİK: GÖREV PUANI BELİRLEME
+                # GÖREV PUANI BELİRLEME
                 task_points = st.number_input("Bu görevin puanı ne kadar olsun?", min_value=1, value=10, step=1)
                 
                 if st.button("Görevi Ata"):
@@ -171,18 +222,12 @@ else:
                 for t in all_tasks:
                     task_data.append([t.id, t.assigned_to, t.title, t.priority, t.points, t.status, t.assigned_by])
                 df = pd.DataFrame(task_data, columns=["ID", "Atanan Kişi", "Görev", "Öncelik", "Puan", "Durum", "Atayan"])
-                st.dataframe(df, use_container_width=True)
+                st.dataframe(df, use_container_width=True, hide_index=True)
             else:
                 st.info("Henüz oluşturulmuş bir görev yok.")
 
         with tab_mod3:
-            st.subheader("Liderlik Tablosu 🏆")
-            all_users = db.query(User).order_by(User.points.desc()).all()
-            user_data = []
-            for i, u in enumerate(all_users):
-                user_data.append([i+1, u.username, u.role, u.points])
-            df_users = pd.DataFrame(user_data, columns=["Sıra", "Kullanıcı", "Rol", "Puan"])
-            st.dataframe(df_users, use_container_width=True)
+            display_leaderboard(db)
 
     # ÜYE PANELİ
     elif st.session_state.role == "Üye":
@@ -201,12 +246,8 @@ else:
                         st.write(f"**Atayan Moderatör:** {t.assigned_by}")
                         
                         if st.button(f"Görevi Tamamla (ID: {t.id})", key=f"btn_{t.id}"):
-                            # Görevi tamamlandı olarak işaretle
                             t.status = "Tamamlandı"
-                            
-                            # Üyeye özel belirlenmiş görev puanını ekle
                             current_user.points += t.points 
-                            
                             db.commit()
                             st.success(f"Tebrikler! Görevi tamamladınız ve {t.points} puan kazandınız!")
                             st.rerun()
@@ -221,12 +262,6 @@ else:
                 st.info("Henüz tamamladığınız bir görev yok.")
 
         with tab_uye2:
-            st.subheader("Liderlik Tablosu 🏆")
-            all_users = db.query(User).order_by(User.points.desc()).all()
-            user_data = []
-            for i, u in enumerate(all_users):
-                user_data.append([i+1, u.username, u.role, u.points])
-            df_users = pd.DataFrame(user_data, columns=["Sıra", "Kullanıcı", "Rol", "Puan"])
-            st.dataframe(df_users, use_container_width=True)
+            display_leaderboard(db)
 
 db.close()
