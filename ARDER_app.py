@@ -60,6 +60,18 @@ if 'role' not in st.session_state:
 def get_session():
     return SessionLocal()
 
+# --- LOGO VE BAŞLIK GÖSTERİM FONKSİYONU ---
+def show_header():
+    col_logo, col_title = st.columns([1, 10])
+    with col_logo:
+        try:
+            # Dosya adını logo.jpg olarak güncelledik
+            st.image("logo.jpg", width=70)
+        except:
+            pass 
+    with col_title:
+        st.header("Akademik Renkler Derneği")
+
 # --- ÖZEL LİDERLİK TABLOSU TASARIMI (HTML/CSS) ---
 def render_custom_leaderboard(db):
     all_users = db.query(User).order_by(User.points.desc()).all()
@@ -68,7 +80,7 @@ def render_custom_leaderboard(db):
     <style>
     .lb-container { font-family: sans-serif; background-color: #ffffff; padding: 20px; }
     .lb-title-wrap { display: flex; align-items: center; margin-bottom: 5px; }
-    .lb-icon { font-size: 28px; margin-right: 10px; color: #d97706; }
+    .lb-icon { font-size: 28px; margin-right: 10px; color: #0f766e; }
     .lb-title { color:#1e3a8a; margin-bottom:0; font-size: 24px; font-weight: bold; }
     .lb-subtitle { color:#6b7280; margin-top:0; margin-bottom: 30px; font-size: 14px; }
     
@@ -164,7 +176,9 @@ db = get_session()
 
 # GİRİŞ VE KAYIT EKRANI
 if not st.session_state.logged_in:
-    st.title("Merhaba - ARDER Görev Yönetim Sistemi")
+    show_header()
+    st.write("Görev Yönetim Sistemine Merhaba!")
+    st.divider()
     
     tab1, tab2 = st.tabs(["Giriş Yap", "Kayıt Ol"])
     
@@ -219,7 +233,8 @@ else:
             st.session_state.role = ""
             st.rerun()
 
-    st.title("ARDER Kontrol Paneli 🚀")
+    show_header()
+    st.divider()
 
     # MODERATÖR PANELİ
     if st.session_state.role == "Moderatör":
