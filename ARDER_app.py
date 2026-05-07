@@ -1,708 +1,232 @@
 import streamlit as st
-import sqlite3
-import hashlib
-import os
-import base64
-from datetime import date
+import pandas as pd
+from sqlalchemy import create_engine, Column, Integer, String, text
+from sqlalchemy.orm import declarative_base, sessionmaker
 
-# ─────────────────────────────────────────────
-# SAYFA YAPISI
-# ─────────────────────────────────────────────
-st.set_page_config(
-    page_title="Akademik Renkler Derneği",
-    page_icon="logo.jpg",
-    layout="centered",
-    initial_sidebar_state="collapsed",
-)
+# --- 1. AYARLAR VE VERİTABANI BAĞLANTISI ---
+st.set_page_config(page_title="ARDER Görev Yönetimi", layout="wide")
 
-# ─────────────────────────────────────────────
-# CSS - TASARIM (Mobil App Görünümü + Kürsü)
-# ─────────────────────────────────────────────
-st.markdown("""
-<style>
-/* Mobil kapsayıcı */
-.main .block-container {
-    max-width: 500px;
-    margin: auto;
-    padding: 1rem;
-}
+# Supabase Bağlantısı (Secrets'tan çekiliyor)
+try:
+    DB_URL = st.secrets["DB_URL"]
+except:
+    st.error("Lütfen Streamlit Secrets kısmına DB_URL bilginizi ekleyin!")
+    st.stop()
 
-/* Arka plan */
-[data-testid="stAppViewContainer"] {
-    background-color: #f0f7f6;
-}
-[data-testid="stHeader"] { background: transparent; }
+engine = create_engine(DB_URL)
+SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+Base = declarative_base()
 
-/* ── Giriş kartı ── */
-.login-card {
-    background: #ffffff;
-    border-radius: 20px;
-    box-shadow: 0 8px 36px rgba(29,118,131,0.15);
-    padding: 2rem 1.5rem 1.5rem 1.5rem;
-    margin: 1.5rem 0;
-}
+# --- 2. VERİTABANI MODELLERİ ---
+class User(Base):
+    __tablename__ = 'users'
+    id = Column(Integer, primary_key=True, index=True)
+    username = Column(String, unique=True, index=True)
+    password = Column(String)
+    role = Column(String) # Moderatör veya Üye
+    points = Column(Integer, default=0)
 
-/* ── Stat kartları ── */
-.stat-card {
-    background: #ffffff;
-    border-radius: 15px;
-    box-shadow: 0 4px 18px rgba(29,118,131,0.10);
-    padding: 1rem 1.2rem;
-    margin: 0.3rem 0;
-    border-left: 4px solid #1A2744;
-}
-.stat-card.teal  { border-left-color: #2DB5A0; }
-.stat-card.blue  { border-left-color: #1976D2; }
-.stat-card .label {
-    font-size: 0.78rem;
-    color: #5a7a76;
-    font-weight: 600;
-    letter-spacing: 0.05em;
-    text-transform: uppercase;
-}
-.stat-card .value {
-    font-size: 2rem;
-    font-weight: 800;
-    color: #1A2744;
-    line-height: 1.2;
-}
+class Task(Base):
+    __tablename__ = 'tasks'
+    id = Column(Integer, primary_key=True, index=True)
+    assigned_to = Column(String)
+    assigned_by = Column(String)
+    title = Column(String)
+    description = Column(String)
+    priority = Column(String)
+    points = Column(Integer, default=10) # YENİ: Görev Puanı Sütunu
+    status = Column(String, default="Bekliyor") # Bekliyor veya Tamamlandı
 
-/* ── Görev kartları ── */
-.task-card {
-    background: #ffffff;
-    border-radius: 14px;
-    box-shadow: 0 3px 14px rgba(29,118,131,0.09);
-    padding: 1rem 1.1rem 0.7rem 1.1rem;
-    margin-bottom: 0.8rem;
-    border-bottom: 3px solid #2DB5A0;
-}
-.task-title { font-size: 1rem; font-weight: 700; color: #1A2744; }
-.task-desc  { font-size: 0.85rem; color: #495057; margin: 0.3rem 0 0.5rem 0; }
-
-/* ── Öncelik etiketleri ── */
-.badge {
-    display: inline-block;
-    padding: 0.2rem 0.65rem;
-    border-radius: 20px;
-    font-size: 0.72rem;
-    font-weight: 700;
-    letter-spacing: 0.04em;
-}
-.badge-critical { background: #fde8e8; color: #c0392b; }
-.badge-high     { background: #fff3cd; color: #856404; }
-.badge-medium   { background: #d4f1ec; color: #1A5C52; }
-
-/* ── Header ── */
-.app-header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    background: linear-gradient(135deg, #1A2744 0%, #1976D2 60%, #2DB5A0 100%);
-    border-radius: 16px;
-    padding: 0.75rem 1rem;
-    margin-bottom: 1rem;
-    color: #ffffff;
-}
-.app-header .brand {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-    font-weight: 800;
-    font-size: 0.95rem;
-    color: #ffffff;
-    line-height: 1.2;
-}
-.app-header .brand small {
-    display: block;
-    font-size: 0.68rem;
-    font-weight: 400;
-    opacity: 0.8;
-}
-.app-header .user-info {
-    font-size: 0.78rem;
-    color: rgba(255,255,255,0.8);
-    text-align: right;
-}
-.app-header .user-info b { color: #a0e8df; }
-
-/* ── YENİ KÜRSÜ (PODIUM) TASARIMI ── */
-.podium-wrapper {
-    display: flex;
-    justify-content: center;
-    align-items: flex-end;
-    gap: 8px;
-    margin: 1.5rem 0 2rem 0;
-    text-align: center;
-}
-.podium-item {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    width: 32%;
-}
-.podium-avatar {
-    width: 55px; height: 55px;
-    background-color: #2DB5A0;
-    color: white;
-    border-radius: 50%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 22px;
-    font-weight: 800;
-    margin-bottom: 8px;
-    box-shadow: 0 4px 10px rgba(45,181,160,0.3);
-}
-.podium-name { 
-    font-size: 0.8rem; 
-    font-weight: 700; 
-    color: #1A2744; 
-    line-height: 1.1; 
-    margin-bottom: 4px; 
-    word-break: break-word;
-}
-.podium-pts { font-size: 0.75rem; color: #6c757d; margin-bottom: 10px; }
-.podium-step {
-    width: 100%;
-    border-radius: 12px 12px 0 0;
-    display: flex;
-    justify-content: center;
-    padding-top: 10px;
-    color: white;
-    font-weight: 800;
-    font-size: 1.1rem;
-    box-shadow: 0 -4px 10px rgba(0,0,0,0.05);
-}
-.step-1 { height: 130px; background: #FFC107; } /* Altın */
-.step-2 { height: 100px; background: #B0BEC5; } /* Gümüş */
-.step-3 { height: 80px; background: #D35400; } /* Bronz */
-
-/* ── LİSTE TASARIMI ── */
-.list-card {
-    background: white;
-    border-radius: 20px;
-    padding: 0.5rem;
-    box-shadow: 0 4px 20px rgba(29,118,131,0.08);
-}
-.list-item {
-    display: flex;
-    align-items: center;
-    padding: 12px;
-    border-bottom: 1px solid #f1f3f5;
-}
-.list-item:last-child { border-bottom: none; }
-.list-rank {
-    width: 30px; height: 30px;
-    border-radius: 50%;
-    display: flex; align-items: center; justify-content: center;
-    font-size: 0.85rem; font-weight: 800; color: white;
-    margin-right: 12px;
-}
-.rank-c1 { background: #FFC107; }
-.rank-c2 { background: #B0BEC5; }
-.rank-c3 { background: #D35400; }
-.rank-other { background: #e9ecef; color: #6c757d; }
-.list-avatar {
-    width: 38px; height: 38px;
-    background: #2DB5A0; color: white;
-    border-radius: 50%; display: flex; align-items: center; justify-content: center;
-    font-weight: bold; margin-right: 12px; font-size: 14px;
-}
-.list-info { flex: 1; }
-.list-name { font-weight: 700; color: #1A2744; font-size: 0.9rem; }
-.list-role { font-size: 0.75rem; color: #6c757d; }
-.list-points { text-align: right; }
-.list-points-val { font-weight: 800; color: #1A2744; font-size: 1.1rem; line-height: 1; }
-.list-points-lbl { font-size: 0.7rem; color: #adb5bd; }
-
-/* ── Butonlar ── */
-div.stButton > button {
-    border-radius: 8px !important;
-    font-weight: 600 !important;
-    transition: all 0.2s ease !important;
-}
-div.stButton > button:first-child {
-    background: linear-gradient(90deg, #1A2744, #1976D2) !important;
-    color: #ffffff !important;
-    border: none !important;
-}
-div.stButton > button:hover {
-    background: linear-gradient(90deg, #2DB5A0, #1976D2) !important;
-    color: #ffffff !important;
-    transform: translateY(-1px) !important;
-    box-shadow: 0 4px 14px rgba(45,181,160,0.35) !important;
-}
-
-/* ── Profil kartı ── */
-.profile-card {
-    background: #fff;
-    border-radius: 15px;
-    padding: 1.2rem 1.4rem;
-    box-shadow: 0 4px 18px rgba(29,118,131,0.09);
-    margin-bottom: 0.8rem;
-}
-.profile-row {
-    display: flex;
-    justify-content: space-between;
-    padding: 0.4rem 0;
-    border-bottom: 1px solid #e8f5f3;
-    font-size: 0.9rem;
-}
-.profile-row:last-child { border-bottom: none; }
-.profile-label { color: #5a7a76; font-weight: 600; }
-.profile-val   { color: #1A2744; font-weight: 700; }
-
-/* ── Giriş ekranı logo alanı ── */
-.login-logo-area {
-    text-align: center;
-    margin-bottom: 1.2rem;
-}
-.login-logo-area .brand-name {
-    font-size: 1.3rem;
-    font-weight: 900;
-    background: linear-gradient(90deg, #1A2744, #1976D2, #2DB5A0);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    background-clip: text;
-    margin-top: 0.5rem;
-}
-.login-logo-area .brand-sub {
-    font-size: 0.8rem;
-    color: #5a7a76;
-    margin-top: 0.1rem;
-}
-
-/* ── Sekme renkleri ── */
-[data-testid="stTabs"] button[aria-selected="true"] {
-    color: #1976D2 !important;
-    border-bottom: 2px solid #2DB5A0 !important;
-}
-</style>
-""", unsafe_allow_html=True)
-
-# ─────────────────────────────────────────────
-# VERİTABANI İŞLEMLERİ
-# ─────────────────────────────────────────────
-DB = "akademik_renkler.db"
-
-def get_conn():
-    return sqlite3.connect(DB, check_same_thread=False)
-
+# --- 3. VERİTABANI BAŞLATMA VE GÜNCELLEME ---
 def init_db():
-    conn = get_conn()
-    c = conn.cursor()
-    c.execute("""
-        CREATE TABLE IF NOT EXISTS users (
-            id       INTEGER PRIMARY KEY AUTOINCREMENT,
-            name     TEXT    NOT NULL,
-            email    TEXT    UNIQUE NOT NULL,
-            password TEXT    NOT NULL,
-            role     TEXT    NOT NULL DEFAULT 'ÜYE',
-            unit     TEXT,
-            points   INTEGER NOT NULL DEFAULT 0
-        )
-    """)
-    c.execute("""
-        CREATE TABLE IF NOT EXISTS tasks (
-            id          INTEGER PRIMARY KEY AUTOINCREMENT,
-            title       TEXT NOT NULL,
-            description TEXT,
-            assigned_to TEXT NOT NULL,
-            status      TEXT NOT NULL DEFAULT 'Bekliyor',
-            priority    TEXT NOT NULL DEFAULT 'Orta',
-            date        TEXT
-        )
-    """)
-    conn.commit()
-    conn.close()
+    Base.metadata.create_all(bind=engine)
+    # Eski tablolara yeni 'points' sütununu otomatik eklemek için güvenlik yaması
+    try:
+        with engine.connect() as conn:
+            conn.execute(text("ALTER TABLE tasks ADD COLUMN IF NOT EXISTS points INTEGER DEFAULT 10;"))
+            conn.commit()
+    except Exception as e:
+        pass # Eğer zaten varsa veya SQLite kullanılıyorsa yoksay
 
 init_db()
 
-# ─────────────────────────────────────────────
-# YARDIMCI FONKSİYONLAR
-# ─────────────────────────────────────────────
-def hash_pw(pw: str) -> str:
-    return hashlib.sha256(pw.encode()).hexdigest()
+# --- 4. OTURUM (SESSION) YÖNETİMİ ---
+if 'logged_in' not in st.session_state:
+    st.session_state.logged_in = False
+if 'username' not in st.session_state:
+    st.session_state.username = ""
+if 'role' not in st.session_state:
+    st.session_state.role = ""
 
-def get_user(email: str):
-    conn = get_conn()
-    c = conn.cursor()
-    c.execute("SELECT * FROM users WHERE email=?", (email,))
-    row = c.fetchone()
-    conn.close()
-    return row
+# Veritabanı oturumu açma/kapatma aracı
+def get_session():
+    return SessionLocal()
 
-def register_user(name, email, password, role, unit):
-    conn = get_conn()
-    c = conn.cursor()
-    try:
-        c.execute(
-            "INSERT INTO users (name,email,password,role,unit,points) VALUES (?,?,?,?,?,0)",
-            (name, email, hash_pw(password), role, unit)
-        )
-        conn.commit()
-        return True, "Kayıt başarılı! Giriş yapabilirsiniz."
-    except sqlite3.IntegrityError:
-        return False, "Bu e-posta zaten kayıtlı."
-    finally:
-        conn.close()
+# --- 5. ARAYÜZ VE FONKSİYONLAR ---
+db = get_session()
 
-def get_pending_tasks(email: str):
-    conn = get_conn()
-    c = conn.cursor()
-    c.execute(
-        "SELECT * FROM tasks WHERE assigned_to=? AND status='Bekliyor' ORDER BY date DESC",
-        (email,)
-    )
-    rows = c.fetchall()
-    conn.close()
-    return rows
-
-def complete_task(task_id: int, email: str):
-    conn = get_conn()
-    c = conn.cursor()
-    c.execute("UPDATE tasks SET status='Tamamlandı' WHERE id=?", (task_id,))
-    c.execute("UPDATE users SET points = points + 10 WHERE email=?", (email,))
-    conn.commit()
-    conn.close()
-
-def get_leaderboard():
-    conn = get_conn()
-    c = conn.cursor()
-    c.execute("SELECT name, unit, points FROM users ORDER BY points DESC")
-    rows = c.fetchall()
-    conn.close()
-    return rows
-
-def get_members():
-    conn = get_conn()
-    c = conn.cursor()
-    c.execute("SELECT name, email FROM users WHERE role='ÜYE'")
-    rows = c.fetchall()
-    conn.close()
-    return rows
-
-def assign_task(title, desc, priority, assigned_to):
-    conn = get_conn()
-    c = conn.cursor()
-    c.execute(
-        "INSERT INTO tasks (title,description,assigned_to,status,priority,date) VALUES (?,?,?,'Bekliyor',?,?)",
-        (title, desc, assigned_to, priority, str(date.today()))
-    )
-    conn.commit()
-    conn.close()
-
-def count_pending(email):
-    conn = get_conn()
-    c = conn.cursor()
-    c.execute("SELECT COUNT(*) FROM tasks WHERE assigned_to=? AND status='Bekliyor'", (email,))
-    n = c.fetchone()[0]
-    conn.close()
-    return n
-
-# ─────────────────────────────────────────────
-# LOGO YARDIMCISI
-# ─────────────────────────────────────────────
-def get_logo_b64():
-    for ext in ["logo.png", "logo.jpg", "logo.jpeg"]:
-        if os.path.exists(ext):
-            with open(ext, "rb") as f:
-                data = base64.b64encode(f.read()).decode()
-            mime = "image/png" if ext.endswith(".png") else "image/jpeg"
-            return f'<img src="data:{mime};base64,{data}" style="height:{{size}}px; border-radius:6px; object-fit:contain;">'
-    return None
-
-LOGO_TPL = get_logo_b64()
-
-def logo_html(size=35):
-    if LOGO_TPL:
-        return LOGO_TPL.replace("{size}", str(size))
-    return f'<span style="font-size:{size}px; line-height:1;">🦚</span>'
-
-# ─────────────────────────────────────────────
-# SESSION STATE
-# ─────────────────────────────────────────────
-if "page"      not in st.session_state: st.session_state["page"]      = "login"
-if "logged_in" not in st.session_state: st.session_state["logged_in"] = False
-if "user"      not in st.session_state: st.session_state["user"]      = None
-
-# ─────────────────────────────────────────────
-# BADGE YARDIMCISI
-# ─────────────────────────────────────────────
-PRIORITY_CLASS = {"Kritik": "badge-critical", "Yüksek": "badge-high", "Orta": "badge-medium"}
-
-def badge(priority):
-    cls = PRIORITY_CLASS.get(priority, "badge-medium")
-    return f'<span class="badge {cls}">{priority}</span>'
-
-def get_initials(name):
-    parts = name.split()
-    if not parts: return "?"
-    if len(parts) >= 2: return (parts[0][0] + parts[1][0]).upper()
-    return parts[0][0].upper()
-
-# ─────────────────────────────────────────────
-# EKRAN 1: GİRİŞ / KAYIT
-# ─────────────────────────────────────────────
-def page_login():
-    st.markdown(f"""
-    <div class="login-card">
-      <div class="login-logo-area">
-        {logo_html(90)}
-        <div class="brand-name">AKADEMİK RENKLER DERNEĞİ</div>
-        <div class="brand-sub">Yönetim Sistemi</div>
-      </div>
-    </div>
-    """, unsafe_allow_html=True)
-
-    tab_login, tab_register = st.tabs(["🔑 Giriş Yap", "📝 Yeni Üye Kaydı"])
-
-    with tab_login:
-        email    = st.text_input("E-posta", placeholder="ornek@mail.com", key="li_email")
-        password = st.text_input("Şifre", type="password", key="li_pw")
-        if st.button("Giriş Yap", use_container_width=True, key="btn_login"):
-            if not email or not password:
-                st.warning("Lütfen e-posta ve şifrenizi girin.")
-            else:
-                user = get_user(email.strip().lower())
-                if user and user[3] == hash_pw(password):
-                    st.session_state["logged_in"] = True
-                    st.session_state["user"]      = user
-                    st.session_state["page"]      = "dashboard"
-                    st.rerun()
-                else:
-                    st.error("E-posta veya şifre hatalı.")
-
-    with tab_register:
-        r_name  = st.text_input("Adınız Soyadınız", key="r_name")
-        r_email = st.text_input("E-posta", placeholder="ornek@mail.com", key="r_email")
-        r_pw    = st.text_input("Şifre", type="password", key="r_pw")
-        r_pw2   = st.text_input("Şifre Tekrar", type="password", key="r_pw2")
-        r_unit  = st.selectbox(
-            "Birim",
-            ["Eğitim", "Proje", "İletişim", "Organizasyon", "Finans", "Teknik"],
-            key="r_unit"
-        )
-        r_role  = st.selectbox("Rol", ["ÜYE", "MODERATÖR"], key="r_role")
-        if st.button("Kayıt Ol", use_container_width=True, key="btn_register"):
-            if not all([r_name, r_email, r_pw, r_pw2]):
-                st.warning("Tüm alanları doldurunuz.")
-            elif r_pw != r_pw2:
-                st.error("Şifreler eşleşmiyor.")
-            elif len(r_pw) < 6:
-                st.error("Şifre en az 6 karakter olmalıdır.")
-            else:
-                ok, msg = register_user(
-                    r_name.strip(), r_email.strip().lower(), r_pw, r_role, r_unit
-                )
-                st.success(msg) if ok else st.error(msg)
-
-# ─────────────────────────────────────────────
-# EKRAN 2: DASHBOARD
-# ─────────────────────────────────────────────
-def page_dashboard():
-    u = st.session_state["user"]
-    uid, uname, uemail, _, urole, uunit, upoints = u
-
-    fresh = get_user(uemail)
-    if fresh:
-        upoints = fresh[6]
-        st.session_state["user"] = fresh
-
-    pending_n = count_pending(uemail)
-
-    # ── HEADER ──
-    st.markdown(f"""
-    <div class="app-header">
-      <div class="brand">
-        {logo_html(38)}
-        <div>
-          AKADEMİK RENKLER
-          <small>Derneği</small>
-        </div>
-      </div>
-      <div class="user-info">
-        Hoş geldin,<br><b>{uname}</b>
-      </div>
-    </div>
-    """, unsafe_allow_html=True)
-
-    if st.button("🚪 Çıkış Yap", key="btn_logout"):
-        st.session_state.update({"logged_in": False, "user": None, "page": "login"})
-        st.rerun()
-
-    # ── İSTATİSTİK KARTLARI ──
-    col1, col2 = st.columns(2)
-    with col1:
-        st.markdown(f"""
-        <div class="stat-card teal">
-          <div class="label">⭐ Toplam Puanım</div>
-          <div class="value">{upoints}</div>
-        </div>
-        """, unsafe_allow_html=True)
-    with col2:
-        st.markdown(f"""
-        <div class="stat-card blue">
-          <div class="label">📋 Bekleyen Görev</div>
-          <div class="value">{pending_n}</div>
-        </div>
-        """, unsafe_allow_html=True)
-
-    st.markdown("<div style='margin-top:0.8rem;'></div>", unsafe_allow_html=True)
-
-    # ── SEKMELER ──
-    tabs = st.tabs(["📋 Görevlerim", "🏆 Puan Tablosu", "👤 Profilim"])
-
-    # ── GÖREVLERİM ──
-    with tabs[0]:
-        tasks = get_pending_tasks(uemail)
-        if not tasks:
-            st.markdown("""
-            <div style="text-align:center; padding:2rem 0; color:#5a7a76;">
-              <div style="font-size:2.5rem;">✅</div>
-              <div style="font-weight:600; margin-top:0.5rem;">Bekleyen göreviniz yok!</div>
-            </div>
-            """, unsafe_allow_html=True)
-        else:
-            for t in tasks:
-                tid, ttitle, tdesc, _, _, tpriority, tdate = t
-                st.markdown(f"""
-                <div class="task-card">
-                  <div class="task-title">{ttitle}</div>
-                  <div class="task-desc">{tdesc or "—"}</div>
-                  <div style="display:flex;align-items:center;justify-content:space-between;">
-                    {badge(tpriority)}
-                    <span style="font-size:0.75rem;color:#adb5bd;">{tdate or ""}</span>
-                  </div>
-                </div>
-                """, unsafe_allow_html=True)
-                if st.button("✔ Tamamlandı olarak işaretle", key=f"done_{tid}"):
-                    complete_task(tid, uemail)
-                    st.success(f"🎉 '{ttitle}' tamamlandı! +10 puan kazandınız.")
-                    st.rerun()
-
-    # ── PUAN TABLOSU (KÜRSÜ + LİSTE) ──
-    with tabs[1]:
-        st.markdown("""
-        <div style="margin-bottom: 1rem;">
-            <div style="font-size:1.5rem; font-weight:800; color:#1A2744; display:flex; align-items:center; gap:8px;">
-                🏆 Liderlik Tablosu
-            </div>
-            <div style="font-size:0.85rem; color:#6c757d;">En çok puan kazanan üyeler</div>
-        </div>
-        """, unsafe_allow_html=True)
+# GİRİŞ VE KAYIT EKRANI
+if not st.session_state.logged_in:
+    st.title("ARDER Görev Yönetim Sistemine Hoş Geldiniz")
+    
+    tab1, tab2 = st.tabs(["Giriş Yap", "Kayıt Ol"])
+    
+    with tab1:
+        st.subheader("Kullanıcı Girişi")
+        login_user = st.text_input("Kullanıcı Adı", key="login_user")
+        login_pass = st.text_input("Şifre", type="password", key="login_pass")
         
-        lb = get_leaderboard()
-        
-        # Kürsü için en az 3 kişilik sahte liste (eğer sistemde 3'ten az kişi varsa)
-        padded_lb = lb.copy()
-        while len(padded_lb) < 3:
-            padded_lb.append(("Bilinmiyor", "—", 0))
-            
-        p1, p2, p3 = padded_lb[0], padded_lb[1], padded_lb[2]
-
-        # Kürsü HTML'i
-        st.markdown(f"""
-        <div class="podium-wrapper">
-            <div class="podium-item">
-                <div class="podium-avatar">{get_initials(p2[0])}</div>
-                <div class="podium-name">{p2[0]}</div>
-                <div class="podium-pts">{p2[2]} pts</div>
-                <div class="podium-step step-2">🥈 2</div>
-            </div>
-            <div class="podium-item" style="z-index: 2;">
-                <div class="podium-avatar" style="width:65px; height:65px; font-size:26px;">{get_initials(p1[0])}</div>
-                <div class="podium-name" style="font-size:0.9rem;">{p1[0]}</div>
-                <div class="podium-pts">{p1[2]} pts</div>
-                <div class="podium-step step-1">🥇 1</div>
-            </div>
-            <div class="podium-item">
-                <div class="podium-avatar">{get_initials(p3[0])}</div>
-                <div class="podium-name">{p3[0]}</div>
-                <div class="podium-pts">{p3[2]} pts</div>
-                <div class="podium-step step-3">🥉 3</div>
-            </div>
-        </div>
-        """, unsafe_allow_html=True)
-
-        # Alt Liste HTML'i (Tüm üyelerin alt alta listesi)
-        if lb:
-            list_html = '<div class="list-card">'
-            for i, (lname, lunit, lpts) in enumerate(lb):
-                rank_class = f"rank-c{i+1}" if i < 3 else "rank-other"
-                
-                list_html += f"""
-                <div class="list-item">
-                    <div class="list-rank {rank_class}">{i+1}</div>
-                    <div class="list-avatar">{get_initials(lname)}</div>
-                    <div class="list-info">
-                        <div class="list-name">{lname}</div>
-                        <div class="list-role">{lunit or "Üye"}</div>
-                    </div>
-                    <div class="list-points">
-                        <div class="list-points-val">{lpts}</div>
-                        <div class="list-points-lbl">puan</div>
-                    </div>
-                </div>
-                """
-            list_html += '</div>'
-            st.markdown(list_html, unsafe_allow_html=True)
-
-    # ── PROFİLİM ──
-    with tabs[2]:
-        st.markdown(f"""
-        <div class="profile-card">
-          <div style="text-align:center; margin-bottom:1.2rem;">
-            {logo_html(60)}
-            <div style="font-weight:800; font-size:1.1rem; color:#1A2744; margin-top:0.6rem;">{uname}</div>
-            <div style="font-size:0.82rem; color:#2DB5A0; font-weight:700; margin-top:0.1rem;">{urole}</div>
-          </div>
-          <div class="profile-row">
-            <span class="profile-label">📧 E-posta</span>
-            <span class="profile-val">{uemail}</span>
-          </div>
-          <div class="profile-row">
-            <span class="profile-label">🏢 Birim</span>
-            <span class="profile-val">{uunit or "—"}</span>
-          </div>
-          <div class="profile-row">
-            <span class="profile-label">👑 Rol</span>
-            <span class="profile-val">{urole}</span>
-          </div>
-          <div class="profile-row">
-            <span class="profile-label">⭐ Toplam Puan</span>
-            <span class="profile-val" style="color:#1976D2;">{upoints}</span>
-          </div>
-        </div>
-        """, unsafe_allow_html=True)
-
-    # ── YÖNETİM PANELİ (SADECE MODERATÖR) ──
-    if urole == "MODERATÖR":
-        st.markdown("<div style='margin-top:1rem;'></div>", unsafe_allow_html=True)
-        with st.expander("👑 Yönetici Araçları", expanded=False):
-            st.markdown("#### 📌 Üyeye Görev Ata")
-            members = get_members()
-            if not members:
-                st.info("Sistemde kayıtlı üye bulunmuyor.")
+        if st.button("Giriş"):
+            user = db.query(User).filter(User.username == login_user, User.password == login_pass).first()
+            if user:
+                st.session_state.logged_in = True
+                st.session_state.username = user.username
+                st.session_state.role = user.role
+                st.success("Giriş başarılı! Yönlendiriliyorsunuz...")
+                st.rerun()
             else:
-                member_opts    = {f"{m[0]} ({m[1]})": m[1] for m in members}
-                selected_label = st.selectbox("Üye Seç", list(member_opts.keys()), key="mod_member")
-                selected_email = member_opts[selected_label]
-                t_title = st.text_input("Görev Başlığı", key="mod_title")
-                t_desc  = st.text_area("Görev Açıklaması", key="mod_desc", height=80)
-                t_prio  = st.selectbox("Öncelik", ["Kritik", "Yüksek", "Orta"], key="mod_prio")
-                if st.button("📌 Görevi Ata", use_container_width=True, key="btn_assign"):
-                    if not t_title.strip():
-                        st.warning("Görev başlığı boş olamaz.")
-                    else:
-                        assign_task(t_title.strip(), t_desc.strip(), t_prio, selected_email)
-                        st.success(f"✅ Görev '{selected_label}' kişisine atandı!")
-                        st.rerun()
+                st.error("Kullanıcı adı veya şifre hatalı!")
 
-# ─────────────────────────────────────────────
-# ROUTER
-# ─────────────────────────────────────────────
-if st.session_state["page"] == "login" or not st.session_state["logged_in"]:
-    page_login()
+    with tab2:
+        st.subheader("Yeni Hesap Oluştur")
+        reg_user = st.text_input("Belirleyeceğiniz Kullanıcı Adı", key="reg_user")
+        reg_pass = st.text_input("Şifre Belirleyin", type="password", key="reg_pass")
+        reg_role = st.selectbox("Rolünüz", ["Üye", "Moderatör"])
+        
+        if st.button("Kayıt Ol"):
+            existing_user = db.query(User).filter(User.username == reg_user).first()
+            if existing_user:
+                st.warning("Bu kullanıcı adı zaten alınmış!")
+            elif len(reg_user) < 3 or len(reg_pass) < 3:
+                st.warning("Kullanıcı adı ve şifre en az 3 karakter olmalıdır.")
+            else:
+                new_user = User(username=reg_user, password=reg_pass, role=reg_role, points=0)
+                db.add(new_user)
+                db.commit()
+                st.success("Kayıt başarılı! Lütfen 'Giriş Yap' sekmesinden giriş yapın.")
+
+# ANA PANEL (GİRİŞ YAPILDIKTAN SONRA)
 else:
-    page_dashboard()
+    # Sol Menü (Sidebar)
+    with st.sidebar:
+        st.title("👤 Profilim")
+        st.write(f"**Kullanıcı:** {st.session_state.username}")
+        st.write(f"**Rol:** {st.session_state.role}")
+        
+        # Güncel Puanı Çekme
+        current_user = db.query(User).filter(User.username == st.session_state.username).first()
+        st.write(f"**Puan:** {current_user.points}")
+        
+        st.divider()
+        if st.button("🚪 Çıkış Yap"):
+            st.session_state.logged_in = False
+            st.session_state.username = ""
+            st.session_state.role = ""
+            st.rerun()
+
+    st.title("ARDER Kontrol Paneli 🚀")
+
+    # MODERATÖR PANELİ
+    if st.session_state.role == "Moderatör":
+        tab_mod1, tab_mod2, tab_mod3 = st.tabs(["Görev Ata", "Tüm Görevler", "Liderlik Tablosu"])
+        
+        with tab_mod1:
+            st.subheader("Yeni Görev Oluştur")
+            users = db.query(User).filter(User.role == "Üye").all()
+            user_list = [u.username for u in users]
+            
+            if not user_list:
+                st.info("Sistemde henüz kayıtlı 'Üye' bulunmuyor. Görev atamak için üyelerin kayıt olmasını bekleyin.")
+            else:
+                assigned_to = st.selectbox("Görevi Alacak Üye", user_list)
+                task_title = st.text_input("Görev Başlığı")
+                task_desc = st.text_area("Görev Açıklaması")
+                task_priority = st.selectbox("Öncelik", ["Düşük", "Orta", "Yüksek", "Acil"])
+                
+                # YENİ ÖZELLİK: GÖREV PUANI BELİRLEME
+                task_points = st.number_input("Bu görevin puanı ne kadar olsun?", min_value=1, value=10, step=1)
+                
+                if st.button("Görevi Ata"):
+                    if task_title:
+                        new_task = Task(
+                            assigned_to=assigned_to,
+                            assigned_by=st.session_state.username,
+                            title=task_title,
+                            description=task_desc,
+                            priority=task_priority,
+                            points=task_points,
+                            status="Bekliyor"
+                        )
+                        db.add(new_task)
+                        db.commit()
+                        st.success(f"Görev '{assigned_to}' adlı üyeye başarıyla atandı! ({task_points} Puan)")
+                    else:
+                        st.warning("Lütfen görev başlığını girin.")
+
+        with tab_mod2:
+            st.subheader("Sistemdeki Tüm Görevler")
+            all_tasks = db.query(Task).all()
+            if all_tasks:
+                task_data = []
+                for t in all_tasks:
+                    task_data.append([t.id, t.assigned_to, t.title, t.priority, t.points, t.status, t.assigned_by])
+                df = pd.DataFrame(task_data, columns=["ID", "Atanan Kişi", "Görev", "Öncelik", "Puan", "Durum", "Atayan"])
+                st.dataframe(df, use_container_width=True)
+            else:
+                st.info("Henüz oluşturulmuş bir görev yok.")
+
+        with tab_mod3:
+            st.subheader("Liderlik Tablosu 🏆")
+            all_users = db.query(User).order_by(User.points.desc()).all()
+            user_data = []
+            for i, u in enumerate(all_users):
+                user_data.append([i+1, u.username, u.role, u.points])
+            df_users = pd.DataFrame(user_data, columns=["Sıra", "Kullanıcı", "Rol", "Puan"])
+            st.dataframe(df_users, use_container_width=True)
+
+    # ÜYE PANELİ
+    elif st.session_state.role == "Üye":
+        tab_uye1, tab_uye2 = st.tabs(["Görevlerim", "Liderlik Tablosu"])
+        
+        with tab_uye1:
+            st.subheader("Bana Atanan Görevler")
+            my_tasks = db.query(Task).filter(Task.assigned_to == st.session_state.username, Task.status == "Bekliyor").all()
+            
+            if not my_tasks:
+                st.success("Harika! Bekleyen hiçbir göreviniz yok. 🎉")
+            else:
+                for t in my_tasks:
+                    with st.expander(f"📌 {t.title} - Öncelik: {t.priority} ({t.points} Puan)"):
+                        st.write(f"**Açıklama:** {t.description}")
+                        st.write(f"**Atayan Moderatör:** {t.assigned_by}")
+                        
+                        if st.button(f"Görevi Tamamla (ID: {t.id})", key=f"btn_{t.id}"):
+                            # Görevi tamamlandı olarak işaretle
+                            t.status = "Tamamlandı"
+                            
+                            # Üyeye özel belirlenmiş görev puanını ekle
+                            current_user.points += t.points 
+                            
+                            db.commit()
+                            st.success(f"Tebrikler! Görevi tamamladınız ve {t.points} puan kazandınız!")
+                            st.rerun()
+
+            st.divider()
+            st.subheader("Tamamladığım Görevler")
+            completed_tasks = db.query(Task).filter(Task.assigned_to == st.session_state.username, Task.status == "Tamamlandı").all()
+            if completed_tasks:
+                for c in completed_tasks:
+                    st.write(f"✅ {c.title} *(+{c.points} Puan)*")
+            else:
+                st.info("Henüz tamamladığınız bir görev yok.")
+
+        with tab_uye2:
+            st.subheader("Liderlik Tablosu 🏆")
+            all_users = db.query(User).order_by(User.points.desc()).all()
+            user_data = []
+            for i, u in enumerate(all_users):
+                user_data.append([i+1, u.username, u.role, u.points])
+            df_users = pd.DataFrame(user_data, columns=["Sıra", "Kullanıcı", "Rol", "Puan"])
+            st.dataframe(df_users, use_container_width=True)
+
+db.close()
