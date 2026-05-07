@@ -34,13 +34,12 @@ class Task(Base):
     title = Column(String)
     description = Column(String)
     priority = Column(String)
-    points = Column(Integer, default=10) # Görev Puanı Sütunu
+    points = Column(Integer, default=10)
     status = Column(String, default="Bekliyor") # Bekliyor veya Tamamlandı
 
 # --- 3. VERİTABANI BAŞLATMA VE GÜNCELLEME ---
 def init_db():
     Base.metadata.create_all(bind=engine)
-    # Eski tablolara yeni 'points' sütununu otomatik eklemek için güvenlik yaması
     try:
         with engine.connect() as conn:
             conn.execute(text("ALTER TABLE tasks ADD COLUMN IF NOT EXISTS points INTEGER DEFAULT 10;"))
@@ -61,47 +60,103 @@ if 'role' not in st.session_state:
 def get_session():
     return SessionLocal()
 
-# --- LOGO AYARI ---
-# DİKKAT: Buraya derneğinin gerçek logosunun internet linkini koyabilirsin. 
-# Eğer GitHub'a "logo.png" diye bir dosya yüklersen, buraya sadece "logo.png" yazman yeterli.
-LOGO_URL = "https://via.placeholder.com/600x200.png?text=ARDER+LOGOSU" 
-
-# --- YARDIMCI FONKSİYON: BASAMAKLI LİDERLİK TABLOSU ---
-def display_leaderboard(db):
-    st.subheader("Liderlik Tablosu 🏆")
+# --- ÖZEL LİDERLİK TABLOSU TASARIMI (HTML/CSS) ---
+def render_custom_leaderboard(db):
     all_users = db.query(User).order_by(User.points.desc()).all()
     
-    if not all_users:
-        st.info("Henüz sistemde puanı olan kullanıcı yok.")
-        return
+    html = """
+    <style>
+    .lb-container { font-family: sans-serif; background-color: #ffffff; padding: 20px; }
+    .lb-title-wrap { display: flex; align-items: center; margin-bottom: 5px; }
+    .lb-icon { font-size: 28px; margin-right: 10px; color: #d97706; }
+    .lb-title { color:#1e3a8a; margin-bottom:0; font-size: 24px; font-weight: bold; }
+    .lb-subtitle { color:#6b7280; margin-top:0; margin-bottom: 30px; font-size: 14px; }
+    
+    .podium-wrapper { display: flex; justify-content: center; align-items: flex-end; gap: 10px; height: 230px; margin-bottom: 20px; }
+    .podium-col { display: flex; flex-direction: column; align-items: center; width: 30%; max-width: 120px; }
+    
+    .avatar { width: 55px; height: 55px; background-color: #0d9488; color: white; display: flex; justify-content: center; align-items: center; font-size: 24px; font-weight: bold; margin-bottom: 8px; border-radius: 4px; }
+    .name { font-size: 14px; font-weight: bold; color: #1e3a8a; text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
+    .pts { font-size: 12px; color: #9ca3af; margin-bottom: 8px; }
+    
+    .block { width: 100%; display: flex; justify-content: center; padding-top: 15px; color: white; font-weight: bold; font-size: 18px; border-radius: 4px 4px 0 0; box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1); }
+    .block.silver { height: 110px; background: #cbd5e1; }
+    .block.gold { height: 150px; background: #eab308; }
+    .block.bronze { height: 90px; background: #d97706; }
+    
+    .list-wrapper { display: flex; flex-direction: column; gap: 15px; padding: 15px; border-radius: 4px; border: 1px solid #f3f4f6; box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.05); }
+    .list-item { display: flex; align-items: center; padding-bottom: 15px; border-bottom: 1px solid #f3f4f6; }
+    .list-item:last-child { border-bottom: none; padding-bottom: 0; }
+    
+    .rank-box { width: 35px; height: 35px; display: flex; justify-content: center; align-items: center; font-weight: bold; color: white; margin-right: 15px; border-radius: 4px; font-size: 14px;}
+    .rank-1 { background-color: #eab308; }
+    .rank-2 { background-color: #cbd5e1; color: #475569; }
+    .rank-3 { background-color: #d97706; }
+    .rank-other { background-color: #f8fafc; color: #64748b; border: 1px solid #e2e8f0; }
+    
+    .list-info { flex-grow: 1; display: flex; flex-direction: column; justify-content: center;}
+    .list-name { font-weight: bold; color: #1e3a8a; font-size: 15px;}
+    .list-role { font-size: 12px; color: #6b7280; }
+    .list-points-wrap { display: flex; flex-direction: column; align-items: flex-end; justify-content: center;}
+    .list-points { font-weight: bold; color: #0d9488; font-size: 18px; line-height: 1;}
+    .pts-label { font-size: 11px; color: #9ca3af; margin-top: 2px;}
+    </style>
+    
+    <div class='lb-container'>
+        <div class='lb-title-wrap'>
+            <div class='lb-icon'>🏆</div>
+            <div class='lb-title'>Liderlik Tablosu</div>
+        </div>
+        <div class='lb-subtitle'>En çok puan kazanan üyeler</div>
+    """
+    
+    if len(all_users) >= 1:
+        u1 = all_users[0]
+        u2 = all_users[1] if len(all_users) > 1 else None
+        u3 = all_users[2] if len(all_users) > 2 else None
 
-    # KÜRSÜ (BASAMAK) GÖRÜNÜMÜ - İLK 3 KİŞİ
-    if len(all_users) >= 3:
-        col2, col1, col3 = st.columns(3)
-        with col2:
-            st.info(f"### 🥈 2. {all_users[1].username}\n**{all_users[1].points} Puan**")
-        with col1:
-            st.success(f"## 🥇 1. {all_users[0].username}\n**{all_users[0].points} Puan**")
-        with col3:
-            st.warning(f"#### 🥉 3. {all_users[2].username}\n**{all_users[2].points} Puan**")
-    elif len(all_users) == 2:
-        col1, col2 = st.columns(2)
-        with col1:
-            st.success(f"## 🥇 1. {all_users[0].username}\n**{all_users[0].points} Puan**")
-        with col2:
-            st.info(f"### 🥈 2. {all_users[1].username}\n**{all_users[1].points} Puan**")
-    elif len(all_users) == 1:
-        st.success(f"## 🥇 1. {all_users[0].username}\n**{all_users[0].points} Puan**")
-    
-    st.divider()
-    
-    # Tüm Kullanıcıların Listesi
-    user_data = []
-    for i, u in enumerate(all_users):
-        user_data.append([i+1, u.username, u.role, u.points])
-    df_users = pd.DataFrame(user_data, columns=["Sıra", "Kullanıcı", "Rol", "Puan"])
-    # İndeks numarasını gizleyip sadece verileri gösteriyoruz
-    st.dataframe(df_users, use_container_width=True, hide_index=True)
+        html += "<div class='podium-wrapper'>"
+        
+        # Gümüş (2. Sıra)
+        if u2:
+            html += f"<div class='podium-col'><div class='avatar'>{u2.username[0].upper()}</div><div class='name'>{u2.username}</div><div class='pts'>{u2.points} pts</div><div class='block silver'>🥈 2</div></div>"
+        else:
+            html += "<div class='podium-col'></div>"
+            
+        # Altın (1. Sıra)
+        html += f"<div class='podium-col'><div class='avatar'>{u1.username[0].upper()}</div><div class='name'>{u1.username}</div><div class='pts'>{u1.points} pts</div><div class='block gold'>🥇 1</div></div>"
+        
+        # Bronz (3. Sıra)
+        if u3:
+            html += f"<div class='podium-col'><div class='avatar'>{u3.username[0].upper()}</div><div class='name'>{u3.username}</div><div class='pts'>{u3.points} pts</div><div class='block bronze'>🥉 3</div></div>"
+        else:
+            html += "<div class='podium-col'></div>"
+            
+        html += "</div>"
+        
+    if len(all_users) > 0:
+        html += "<div class='list-wrapper'>"
+        for i, u in enumerate(all_users):
+            r = i + 1
+            rc = f"rank-{r}" if r <= 3 else "rank-other"
+            html += f"""
+            <div class='list-item'>
+                <div class='rank-box {rc}'>{r}</div>
+                <div class='avatar' style='width:45px; height:45px; font-size:18px; margin-bottom:0; margin-right:15px;'>{u.username[0].upper()}</div>
+                <div class='list-info'>
+                    <span class='list-name'>{u.username}</span>
+                    <span class='list-role'>{u.role}</span>
+                </div>
+                <div class='list-points-wrap'>
+                    <div class='list-points'>{u.points}</div>
+                    <div class='pts-label'>puan</div>
+                </div>
+            </div>
+            """
+        html += "</div>"
+        
+    html += "</div>"
+    st.markdown(html, unsafe_allow_html=True)
 
 
 # --- 5. ARAYÜZ VE FONKSİYONLAR ---
@@ -109,13 +164,7 @@ db = get_session()
 
 # GİRİŞ VE KAYIT EKRANI
 if not st.session_state.logged_in:
-    
-    # ANA EKRAN LOGOSU
-    col_logo1, col_logo2, col_logo3 = st.columns([1, 2, 1])
-    with col_logo2:
-        st.image(LOGO_URL, use_container_width=True)
-        
-    st.title("ARDER Görev Yönetim Sistemine Hoş Geldiniz")
+    st.title("Merhaba - ARDER Görev Yönetim Sistemi")
     
     tab1, tab2 = st.tabs(["Giriş Yap", "Kayıt Ol"])
     
@@ -155,12 +204,7 @@ if not st.session_state.logged_in:
 
 # ANA PANEL (GİRİŞ YAPILDIKTAN SONRA)
 else:
-    # Sol Menü (Sidebar)
     with st.sidebar:
-        # MENÜ LOGOSU
-        st.image(LOGO_URL, use_container_width=True)
-        st.divider()
-        
         st.title("👤 Profilim")
         st.write(f"**Kullanıcı:** {st.session_state.username}")
         st.write(f"**Rol:** {st.session_state.role}")
@@ -193,8 +237,6 @@ else:
                 task_title = st.text_input("Görev Başlığı")
                 task_desc = st.text_area("Görev Açıklaması")
                 task_priority = st.selectbox("Öncelik", ["Düşük", "Orta", "Yüksek", "Acil"])
-                
-                # GÖREV PUANI BELİRLEME
                 task_points = st.number_input("Bu görevin puanı ne kadar olsun?", min_value=1, value=10, step=1)
                 
                 if st.button("Görevi Ata"):
@@ -222,12 +264,12 @@ else:
                 for t in all_tasks:
                     task_data.append([t.id, t.assigned_to, t.title, t.priority, t.points, t.status, t.assigned_by])
                 df = pd.DataFrame(task_data, columns=["ID", "Atanan Kişi", "Görev", "Öncelik", "Puan", "Durum", "Atayan"])
-                st.dataframe(df, use_container_width=True, hide_index=True)
+                st.dataframe(df, use_container_width=True)
             else:
                 st.info("Henüz oluşturulmuş bir görev yok.")
 
         with tab_mod3:
-            display_leaderboard(db)
+            render_custom_leaderboard(db)
 
     # ÜYE PANELİ
     elif st.session_state.role == "Üye":
@@ -262,6 +304,6 @@ else:
                 st.info("Henüz tamamladığınız bir görev yok.")
 
         with tab_uye2:
-            display_leaderboard(db)
+            render_custom_leaderboard(db)
 
 db.close()
