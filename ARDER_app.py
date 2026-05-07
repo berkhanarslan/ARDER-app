@@ -2,6 +2,7 @@ import streamlit as st
 import sqlite3
 import hashlib
 import os
+import base64
 from datetime import date
 
 # ─────────────────────────────────────────────
@@ -15,11 +16,7 @@ st.set_page_config(
 )
 
 # ─────────────────────────────────────────────
-# RENK PALETİ  (logo'dan alındı)
-# --primary-teal : #2DB5A0   (tavuskuşu teal)
-# --primary-blue : #1976D2   (A harfi mavi)
-# --primary-dark : #1A2744   (koyu lacivert metin)
-# --bg           : #f0f7f6   (açık teal-beyaz)
+# CSS - TASARIM (Mobil App Görünümü + Kürsü)
 # ─────────────────────────────────────────────
 st.markdown("""
 <style>
@@ -128,21 +125,95 @@ st.markdown("""
 }
 .app-header .user-info b { color: #a0e8df; }
 
-/* ── Liderlik tablosu ── */
-.lb-row {
+/* ── YENİ KÜRSÜ (PODIUM) TASARIMI ── */
+.podium-wrapper {
     display: flex;
-    justify-content: space-between;
-    align-items: center;
-    background: #fff;
-    border-radius: 10px;
-    padding: 0.55rem 0.9rem;
-    margin-bottom: 0.4rem;
-    box-shadow: 0 2px 8px rgba(29,118,131,0.08);
+    justify-content: center;
+    align-items: flex-end;
+    gap: 8px;
+    margin: 1.5rem 0 2rem 0;
+    text-align: center;
 }
-.lb-rank { font-size: 1.1rem; font-weight: 800; color: #2DB5A0; width: 2rem; }
-.lb-name { font-weight: 600; color: #1A2744; flex: 1; margin-left: 0.5rem; }
-.lb-unit { font-size: 0.78rem; color: #6c757d; flex: 1; }
-.lb-pts  { font-weight: 800; color: #1976D2; font-size: 1rem; }
+.podium-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    width: 32%;
+}
+.podium-avatar {
+    width: 55px; height: 55px;
+    background-color: #2DB5A0;
+    color: white;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 22px;
+    font-weight: 800;
+    margin-bottom: 8px;
+    box-shadow: 0 4px 10px rgba(45,181,160,0.3);
+}
+.podium-name { 
+    font-size: 0.8rem; 
+    font-weight: 700; 
+    color: #1A2744; 
+    line-height: 1.1; 
+    margin-bottom: 4px; 
+    word-break: break-word;
+}
+.podium-pts { font-size: 0.75rem; color: #6c757d; margin-bottom: 10px; }
+.podium-step {
+    width: 100%;
+    border-radius: 12px 12px 0 0;
+    display: flex;
+    justify-content: center;
+    padding-top: 10px;
+    color: white;
+    font-weight: 800;
+    font-size: 1.1rem;
+    box-shadow: 0 -4px 10px rgba(0,0,0,0.05);
+}
+.step-1 { height: 130px; background: #FFC107; } /* Altın */
+.step-2 { height: 100px; background: #B0BEC5; } /* Gümüş */
+.step-3 { height: 80px; background: #D35400; } /* Bronz */
+
+/* ── LİSTE TASARIMI ── */
+.list-card {
+    background: white;
+    border-radius: 20px;
+    padding: 0.5rem;
+    box-shadow: 0 4px 20px rgba(29,118,131,0.08);
+}
+.list-item {
+    display: flex;
+    align-items: center;
+    padding: 12px;
+    border-bottom: 1px solid #f1f3f5;
+}
+.list-item:last-child { border-bottom: none; }
+.list-rank {
+    width: 30px; height: 30px;
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 0.85rem; font-weight: 800; color: white;
+    margin-right: 12px;
+}
+.rank-c1 { background: #FFC107; }
+.rank-c2 { background: #B0BEC5; }
+.rank-c3 { background: #D35400; }
+.rank-other { background: #e9ecef; color: #6c757d; }
+.list-avatar {
+    width: 38px; height: 38px;
+    background: #2DB5A0; color: white;
+    border-radius: 50%; display: flex; align-items: center; justify-content: center;
+    font-weight: bold; margin-right: 12px; font-size: 14px;
+}
+.list-info { flex: 1; }
+.list-name { font-weight: 700; color: #1A2744; font-size: 0.9rem; }
+.list-role { font-size: 0.75rem; color: #6c757d; }
+.list-points { text-align: right; }
+.list-points-val { font-weight: 800; color: #1A2744; font-size: 1.1rem; line-height: 1; }
+.list-points-lbl { font-size: 0.7rem; color: #adb5bd; }
 
 /* ── Butonlar ── */
 div.stButton > button {
@@ -181,15 +252,6 @@ div.stButton > button:hover {
 .profile-label { color: #5a7a76; font-weight: 600; }
 .profile-val   { color: #1A2744; font-weight: 700; }
 
-/* ── Başlık yardımcıları ── */
-.center-title {
-    text-align: center;
-    color: #1A2744;
-    font-size: 1.4rem;
-    font-weight: 800;
-    margin-bottom: 0.8rem;
-}
-
 /* ── Giriş ekranı logo alanı ── */
 .login-logo-area {
     text-align: center;
@@ -219,7 +281,7 @@ div.stButton > button:hover {
 """, unsafe_allow_html=True)
 
 # ─────────────────────────────────────────────
-# VERİTABANI
+# VERİTABANI İŞLEMLERİ
 # ─────────────────────────────────────────────
 DB = "akademik_renkler.db"
 
@@ -342,7 +404,6 @@ def count_pending(email):
 # LOGO YARDIMCISI
 # ─────────────────────────────────────────────
 def get_logo_b64():
-    import base64
     for ext in ["logo.png", "logo.jpg", "logo.jpeg"]:
         if os.path.exists(ext):
             with open(ext, "rb") as f:
@@ -366,13 +427,19 @@ if "logged_in" not in st.session_state: st.session_state["logged_in"] = False
 if "user"      not in st.session_state: st.session_state["user"]      = None
 
 # ─────────────────────────────────────────────
-# BADGE
+# BADGE YARDIMCISI
 # ─────────────────────────────────────────────
 PRIORITY_CLASS = {"Kritik": "badge-critical", "Yüksek": "badge-high", "Orta": "badge-medium"}
 
 def badge(priority):
     cls = PRIORITY_CLASS.get(priority, "badge-medium")
     return f'<span class="badge {cls}">{priority}</span>'
+
+def get_initials(name):
+    parts = name.split()
+    if not parts: return "?"
+    if len(parts) >= 2: return (parts[0][0] + parts[1][0]).upper()
+    return parts[0][0].upper()
 
 # ─────────────────────────────────────────────
 # EKRAN 1: GİRİŞ / KAYIT
@@ -514,23 +581,72 @@ def page_dashboard():
                     st.success(f"🎉 '{ttitle}' tamamlandı! +10 puan kazandınız.")
                     st.rerun()
 
-    # ── PUAN TABLOSU ──
+    # ── PUAN TABLOSU (KÜRSÜ + LİSTE) ──
     with tabs[1]:
-        st.markdown('<div class="center-title">🏆 Liderlik Tablosu</div>', unsafe_allow_html=True)
-        lb = get_leaderboard()
-        medals = ["🥇", "🥈", "🥉"]
-        for i, (lname, lunit, lpts) in enumerate(lb):
-            rank = medals[i] if i < 3 else f"{i+1}."
-            # Giriş yapan kullanıcıyı vurgula
-            highlight = "border: 2px solid #2DB5A0;" if lname == uname else ""
-            st.markdown(f"""
-            <div class="lb-row" style="{highlight}">
-              <div class="lb-rank">{rank}</div>
-              <div class="lb-name">{lname}</div>
-              <div class="lb-unit">{lunit or "—"}</div>
-              <div class="lb-pts">{lpts} <span style="font-size:0.7rem;color:#adb5bd;">puan</span></div>
+        st.markdown("""
+        <div style="margin-bottom: 1rem;">
+            <div style="font-size:1.5rem; font-weight:800; color:#1A2744; display:flex; align-items:center; gap:8px;">
+                🏆 Liderlik Tablosu
             </div>
-            """, unsafe_allow_html=True)
+            <div style="font-size:0.85rem; color:#6c757d;">En çok puan kazanan üyeler</div>
+        </div>
+        """, unsafe_allow_html=True)
+        
+        lb = get_leaderboard()
+        
+        # Kürsü için en az 3 kişilik sahte liste (eğer sistemde 3'ten az kişi varsa)
+        padded_lb = lb.copy()
+        while len(padded_lb) < 3:
+            padded_lb.append(("Bilinmiyor", "—", 0))
+            
+        p1, p2, p3 = padded_lb[0], padded_lb[1], padded_lb[2]
+
+        # Kürsü HTML'i
+        st.markdown(f"""
+        <div class="podium-wrapper">
+            <div class="podium-item">
+                <div class="podium-avatar">{get_initials(p2[0])}</div>
+                <div class="podium-name">{p2[0]}</div>
+                <div class="podium-pts">{p2[2]} pts</div>
+                <div class="podium-step step-2">🥈 2</div>
+            </div>
+            <div class="podium-item" style="z-index: 2;">
+                <div class="podium-avatar" style="width:65px; height:65px; font-size:26px;">{get_initials(p1[0])}</div>
+                <div class="podium-name" style="font-size:0.9rem;">{p1[0]}</div>
+                <div class="podium-pts">{p1[2]} pts</div>
+                <div class="podium-step step-1">🥇 1</div>
+            </div>
+            <div class="podium-item">
+                <div class="podium-avatar">{get_initials(p3[0])}</div>
+                <div class="podium-name">{p3[0]}</div>
+                <div class="podium-pts">{p3[2]} pts</div>
+                <div class="podium-step step-3">🥉 3</div>
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
+
+        # Alt Liste HTML'i (Tüm üyelerin alt alta listesi)
+        if lb:
+            list_html = '<div class="list-card">'
+            for i, (lname, lunit, lpts) in enumerate(lb):
+                rank_class = f"rank-c{i+1}" if i < 3 else "rank-other"
+                
+                list_html += f"""
+                <div class="list-item">
+                    <div class="list-rank {rank_class}">{i+1}</div>
+                    <div class="list-avatar">{get_initials(lname)}</div>
+                    <div class="list-info">
+                        <div class="list-name">{lname}</div>
+                        <div class="list-role">{lunit or "Üye"}</div>
+                    </div>
+                    <div class="list-points">
+                        <div class="list-points-val">{lpts}</div>
+                        <div class="list-points-lbl">puan</div>
+                    </div>
+                </div>
+                """
+            list_html += '</div>'
+            st.markdown(list_html, unsafe_allow_html=True)
 
     # ── PROFİLİM ──
     with tabs[2]:
