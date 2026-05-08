@@ -73,7 +73,7 @@ if ('Notification' in window && Notification.permission === 'default') {
 """, height=0)
 
 # ══════════════════════════════════════════════════════════
-# 4. CSS  (Mobil uyumlu & Özel renkler)
+# 4. CSS
 # ══════════════════════════════════════════════════════════
 st.markdown("""
 <style>
@@ -142,7 +142,7 @@ Base         = declarative_base()
 class AppSettings(Base):
     __tablename__ = "app_settings"
     id = Column(Integer, primary_key=True, index=True)
-    last_reset_month = Column(String, default="") # Örn: "2026-05"
+    last_reset_month = Column(String, default="")
 
 class User(Base):
     __tablename__ = "users"
@@ -150,7 +150,7 @@ class User(Base):
     username = Column(String, unique=True, index=True)
     password = Column(String)
     email    = Column(String, default="") 
-    role     = Column(String) # Üye, Bölüm Başkanı, Moderatör
+    role     = Column(String) 
     alan     = Column(String, default="Belirtilmedi")
     points   = Column(Integer, default=0)
 
@@ -163,7 +163,7 @@ class Task(Base):
     description = Column(String)
     priority    = Column(String)
     points      = Column(Integer, default=10)
-    status      = Column(String, default="Bekliyor") # Bekliyor, Tamamlandı, İptal Edildi
+    status      = Column(String, default="Bekliyor") 
     due_date    = Column(String, default="")
 
 def init_db():
@@ -195,7 +195,6 @@ def check_monthly_reset(db):
         db.add(setting)
         db.commit()
     elif setting.last_reset_month != current_month:
-        # Ay değişmiş, herkesin puanını 0 yap
         db.query(User).update({User.points: 0})
         setting.last_reset_month = current_month
         db.commit()
@@ -357,7 +356,6 @@ def show_header():
 _flush_notification()
 db = get_session()
 
-# Aylık kontrolü çalıştır (Sadece veritabanı aktifse)
 check_monthly_reset(db)
 
 # ══════════════════════════════════════════════════════════
@@ -389,32 +387,19 @@ if not st.session_state.logged_in:
         rmail = st.text_input("E-Posta Adresiniz (Bildirimler için)", key="rmail")
         rp    = st.text_input("Şifre", type="password", key="rp")
         
-        # 3 Kademeli Hiyerarşi Seçimi
         role = st.selectbox("Statünüz", ["Üye", "Bölüm Başkanı", "Moderatör"])
         
         if role == "Üye":
             alan = st.selectbox("Bölümünüz", [
-                "Sosyal Medya ve Tasarım", 
-                "İletişim", 
-                "İnsan Kaynakları", 
-                "Projeler ve Koordinatörlükler", 
-                "Etkinlik"
+                "Sosyal Medya ve Tasarım", "İletişim", "İnsan Kaynakları", "Projeler ve Koordinatörlükler", "Etkinlik"
             ])
         elif role == "Bölüm Başkanı":
             alan = st.selectbox("Başkanlığınız", [
-                "Sosyal Medya ve Tasarım Başkanı", 
-                "İletişim Başkanı", 
-                "İnsan Kaynakları Başkanı", 
-                "Projeler ve Koordinatörlükler Başkanı", 
-                "Etkinlik Başkanı"
+                "Sosyal Medya ve Tasarım Başkanı", "İletişim Başkanı", "İnsan Kaynakları Başkanı", "Projeler ve Koordinatörlükler Başkanı", "Etkinlik Başkanı"
             ])
-        else: # Moderatör
+        else: 
             alan = st.selectbox("Yönetim Göreviniz", [
-                "Başkan", 
-                "Başkan Yardımcısı", 
-                "Sayman", 
-                "Genel Sekreter", 
-                "Uygulama Moderatörü"
+                "Başkan", "Başkan Yardımcısı", "Sayman", "Genel Sekreter", "Uygulama Moderatörü"
             ])
             
         if st.button("Kayıt Ol", use_container_width=True):
@@ -453,11 +438,10 @@ else:
     # MODERATÖR PANELİ (En Üst Yetki)
     # ==========================================
     if st.session_state.role == "Moderatör":
-        t1, t2, t3 = st.tabs(["📌 Görev Ata", "📋 Yönetim & İptal", "🏆 Liderlik"])
+        t1, t2, t3, t4 = st.tabs(["📌 Görev Ata", "📋 Yönetim", "👥 Üyeler", "🏆 Liderlik"])
 
         with t1:
             st.markdown("#### Yeni Görev Oluştur")
-            # Moderatör herkese atayabilir.
             members   = db.query(User).all()
             user_list = [f"{u.username} ({u.role} - {u.alan})" for u in members if u.username != cu.username]
 
@@ -501,15 +485,13 @@ else:
                         st.markdown(f"**Açıklama:** {t.description}")
                         st.markdown(f"**Atayan:** {t.assigned_by} | **Puan:** {t.points} | <span style='{status_color}'>**Durum:** {t.status}</span>", unsafe_allow_html=True)
                         
-                        # İptal Etme Özelliği (Sadece Moderatör görebilir)
                         if t.status != "İptal Edildi":
                             st.markdown("<div class='btn-danger'>", unsafe_allow_html=True)
                             if st.button("🗑 Görevi İptal Et", key=f"cancel_{t.id}"):
-                                # Eğer görev tamamlanmışsa, kişinin puanını geri al
                                 if t.status == "Tamamlandı":
                                     u = db.query(User).filter(User.username == t.assigned_to).first()
                                     if u:
-                                        u.points = max(0, u.points - t.points) # Puan sıfırın altına düşmesin
+                                        u.points = max(0, u.points - t.points)
                                 t.status = "İptal Edildi"
                                 db.commit()
                                 st.rerun()
@@ -517,7 +499,34 @@ else:
             else:
                 st.info("Henüz görev yok.")
 
+        # YENİ: Üyeleri ve Bölüm Başkanlarını Silme Sekmesi
         with t3:
+            st.markdown("#### Dernek Üyeleri ve Yönetim")
+            st.info("💡 Sildiğiniz kişinin hesabı ve ona atanmış tüm görevler sistemden kalıcı olarak temizlenir.")
+            
+            all_users = db.query(User).filter(User.username != cu.username).order_by(User.role).all()
+            
+            if not all_users:
+                st.write("Sistemde sizden başka kayıtlı kimse yok.")
+            else:
+                for u in all_users:
+                    with st.container():
+                        c1, c2 = st.columns([3, 1])
+                        with c1:
+                            st.markdown(f"**{u.username}**<br><span style='font-size:0.8rem; color:#6b7280;'>{u.role} | {u.alan}</span>", unsafe_allow_html=True)
+                        with c2:
+                            st.markdown("<div class='btn-danger'>", unsafe_allow_html=True)
+                            if st.button("🗑 Sil", key=f"del_user_{u.id}"):
+                                # Kişiye ait tüm görevleri sil
+                                db.query(Task).filter(Task.assigned_to == u.username).delete()
+                                # Kişiyi sistemden sil
+                                db.delete(u)
+                                db.commit()
+                                st.rerun()
+                            st.markdown("</div>", unsafe_allow_html=True)
+                        st.divider()
+
+        with t4:
             render_leaderboard(db)
 
     # ==========================================
@@ -526,7 +535,6 @@ else:
     elif st.session_state.role == "Bölüm Başkanı":
         t1, t2, t3, t4 = st.tabs(["📋 Görevlerim", "📌 Görev Ata", "👁️ Verdiklerim", "🏆 Liderlik"])
 
-        # 1. Bölüm Başkanının Kendi Görevleri (Tıpkı Üye gibi)
         with t1:
             my_tasks = db.query(Task).filter(Task.assigned_to==cu.username, Task.status=="Bekliyor").all()
             if not my_tasks:
@@ -547,10 +555,8 @@ else:
                         db.commit()
                         st.rerun()
 
-        # 2. Üyelere Görev Atama 
         with t2:
             st.markdown("#### Üyelere Yeni Görev Ata")
-            # Bölüm Başkanı SADECE 'Üye' rolündekilere görev atayabilir.
             only_members = db.query(User).filter(User.role == "Üye").all()
             user_list = [f"{u.username} ({u.alan})" for u in only_members]
 
@@ -580,7 +586,6 @@ else:
                             send_email_notification(target_user.email, ttitle, tdesc, tprio, tpts, str(tdue))
                         st.success(f"✅ Görev '{assigned_to}' adlı üyeye başarıyla atandı!")
 
-        # 3. Kendi Atadığı Görevlerin Durumu
         with t3:
             st.markdown("#### Benim Atadığım Görevler")
             my_given = db.query(Task).filter(Task.assigned_by==cu.username).order_by(Task.id.desc()).all()
