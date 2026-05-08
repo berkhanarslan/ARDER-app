@@ -62,7 +62,7 @@ st.markdown(f"""
 """, unsafe_allow_html=True)
 
 # ══════════════════════════════════════════════════════════
-# 3. BİLDİRİM İZNİ (Uygulama İçi)
+# 3. BİLDİRİM İZNİ
 # ══════════════════════════════════════════════════════════
 components.html("""
 <script>
@@ -73,7 +73,7 @@ if ('Notification' in window && Notification.permission === 'default') {
 """, height=0)
 
 # ══════════════════════════════════════════════════════════
-# 4. CSS  (Mobil 500px + ARDER renk paleti)
+# 4. CSS  (Mobil uyumlu & Özel renkler)
 # ══════════════════════════════════════════════════════════
 st.markdown("""
 <style>
@@ -109,6 +109,7 @@ st.markdown("""
     border-bottom:3px solid #2DB5A0;
 }
 .task-card.done { border-bottom-color:#a0cfcc; opacity:0.82; }
+.task-card.canceled { border-bottom-color:#ef4444; opacity:0.6; }
 .task-title { font-weight:700; color:#1A2744; font-size:0.97rem; }
 .task-meta  { font-size:0.79rem; color:#5a7a76; margin:0.3rem 0; }
 .badge { display:inline-block; padding:0.18rem 0.6rem; border-radius:20px; font-size:0.7rem; font-weight:700; }
@@ -119,15 +120,14 @@ st.markdown("""
 div.stButton>button { border-radius:8px !important; font-weight:600 !important; }
 div.stButton>button:first-child { background:linear-gradient(90deg,#1A2744,#1976D2) !important; color:#fff !important; border:none !important; }
 div.stButton>button:hover { background:linear-gradient(90deg,#2DB5A0,#1976D2) !important; box-shadow:0 4px 14px rgba(45,181,160,0.35) !important; }
-div.stDownloadButton>button {
-    background:linear-gradient(90deg,#f0f7f6,#d4f1ec) !important; color:#1A5C52 !important; border:1px solid #2DB5A0 !important; font-size:0.82rem !important;
-}
+.btn-danger>button { background:linear-gradient(90deg,#ef4444,#dc2626) !important; color:#fff !important; }
+div.stDownloadButton>button { background:linear-gradient(90deg,#f0f7f6,#d4f1ec) !important; color:#1A5C52 !important; border:1px solid #2DB5A0 !important; font-size:0.82rem !important; }
 [data-testid="stTabs"] button[aria-selected="true"] { color:#1976D2 !important; border-bottom:2px solid #2DB5A0 !important; }
 </style>
 """, unsafe_allow_html=True)
 
 # ══════════════════════════════════════════════════════════
-# 5. VERİTABANI  (Supabase / PostgreSQL)
+# 5. VERİTABANI BAĞLANTISI VE MODELLER
 # ══════════════════════════════════════════════════════════
 try:
     DB_URL = st.secrets["DB_URL"]
@@ -139,13 +139,18 @@ engine       = create_engine(DB_URL, pool_pre_ping=True)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 Base         = declarative_base()
 
+class AppSettings(Base):
+    __tablename__ = "app_settings"
+    id = Column(Integer, primary_key=True, index=True)
+    last_reset_month = Column(String, default="") # Örn: "2026-05"
+
 class User(Base):
     __tablename__ = "users"
     id       = Column(Integer, primary_key=True, index=True)
     username = Column(String, unique=True, index=True)
     password = Column(String)
-    email    = Column(String, default="") # YENİ: Bildirim E-Postası
-    role     = Column(String)
+    email    = Column(String, default="") 
+    role     = Column(String) # Üye, Bölüm Başkanı, Moderatör
     alan     = Column(String, default="Belirtilmedi")
     points   = Column(Integer, default=0)
 
@@ -158,7 +163,7 @@ class Task(Base):
     description = Column(String)
     priority    = Column(String)
     points      = Column(Integer, default=10)
-    status      = Column(String, default="Bekliyor")
+    status      = Column(String, default="Bekliyor") # Bekliyor, Tamamlandı, İptal Edildi
     due_date    = Column(String, default="")
 
 def init_db():
@@ -179,16 +184,31 @@ def init_db():
 init_db()
 
 # ══════════════════════════════════════════════════════════
-# 6. ARKA PLAN E-POSTA GÖNDERME FONKSİYONU
+# 6. AYLIK SIFIRLAMA KONTROLÜ
+# ══════════════════════════════════════════════════════════
+def check_monthly_reset(db):
+    current_month = datetime.now().strftime("%Y-%m")
+    setting = db.query(AppSettings).first()
+    
+    if not setting:
+        setting = AppSettings(last_reset_month=current_month)
+        db.add(setting)
+        db.commit()
+    elif setting.last_reset_month != current_month:
+        # Ay değişmiş, herkesin puanını 0 yap
+        db.query(User).update({User.points: 0})
+        setting.last_reset_month = current_month
+        db.commit()
+
+# ══════════════════════════════════════════════════════════
+# 7. E-POSTA VE BİLDİRİM FONKSİYONLARI
 # ══════════════════════════════════════════════════════════
 def send_email_notification(to_email, task_title, task_desc, priority, points, due_date):
-    """Görev atandığında kullanıcının e-posta adresine bildirim atar."""
     try:
-        # Secrets'tan mail ayarlarını çekiyoruz
         sender_email = st.secrets.get("EMAIL_USER", "")
         sender_pass  = st.secrets.get("EMAIL_PASS", "")
-        smtp_server  = st.secrets.get("SMTP_SERVER", "smtp.gmail.com") # Varsayılan Gmail
-        smtp_port    = int(st.secrets.get("SMTP_PORT", 587)) # Varsayılan port 587
+        smtp_server  = st.secrets.get("SMTP_SERVER", "smtp.gmail.com") 
+        smtp_port    = int(st.secrets.get("SMTP_PORT", 587))
         
         if not sender_email or not sender_pass or not to_email:
             return False 
@@ -210,12 +230,9 @@ ARDER Görev Yönetim Sistemi üzerinden sana yeni bir görev atandı!
 Açıklama:
 {task_desc if task_desc else 'Açıklama girilmedi.'}
 
-Uygulamaya girerek görevi tamamlayabilirsin.
 İyi çalışmalar!
 """
         msg.attach(MIMEText(body, 'plain'))
-
-        # Kendi Mail Sunucuna (SMTP) bağlan
         server = smtplib.SMTP(smtp_server, smtp_port)
         server.starttls()
         server.login(sender_email, sender_pass)
@@ -223,12 +240,8 @@ Uygulamaya girerek görevi tamamlayabilirsin.
         server.quit()
         return True
     except Exception as e:
-        st.error(f"MAİL HATASI DETAYI: {e}")
         return False
 
-# ══════════════════════════════════════════════════════════
-# 7. SESSION STATE & DİĞER FONKSİYONLAR
-# ══════════════════════════════════════════════════════════
 _defaults = {"logged_in":False,"username":"","role":"","_notif_title":None,"_notif_body":None}
 for k, v in _defaults.items():
     if k not in st.session_state:
@@ -314,7 +327,7 @@ def render_leaderboard(db):
     </style>
     <div class='lb'>
       <div class='lb-h'>🏆 Liderlik Tablosu</div>
-      <div class='lb-s'>En çok puan kazanan üyeler</div>
+      <div class='lb-s'>Aylık olarak sıfırlanır, en çok puanı toplayan öne geçer!</div>
     """
     if users:
         u1 = users[0]
@@ -344,6 +357,9 @@ def show_header():
 _flush_notification()
 db = get_session()
 
+# Aylık kontrolü çalıştır (Sadece veritabanı aktifse)
+check_monthly_reset(db)
+
 # ══════════════════════════════════════════════════════════
 # 8. GİRİŞ / KAYIT EKRANI
 # ══════════════════════════════════════════════════════════
@@ -369,15 +385,37 @@ if not st.session_state.logged_in:
                 st.error("Kullanıcı adı veya şifre hatalı!")
 
     with tab2:
-        ru   = st.text_input("Kullanıcı Adı", key="ru")
-        rmail = st.text_input("Gmail Adresiniz (Bildirimler için)", key="rmail") # YENİ ALAN
-        rp   = st.text_input("Şifre", type="password", key="rp")
-        role = st.selectbox("Rolünüz", ["Üye","Moderatör"])
+        ru    = st.text_input("Kullanıcı Adı", key="ru")
+        rmail = st.text_input("E-Posta Adresiniz (Bildirimler için)", key="rmail")
+        rp    = st.text_input("Şifre", type="password", key="rp")
+        
+        # 3 Kademeli Hiyerarşi Seçimi
+        role = st.selectbox("Statünüz", ["Üye", "Bölüm Başkanı", "Moderatör"])
         
         if role == "Üye":
-            alan = st.selectbox("Alanınız", ["Normal Üye","Sosyal Medya ve Tasarım","İletişim","İnsan Kaynakları","Projeler ve Koordinatörlükler","Etkinlik"])
-        else:
-            alan = st.selectbox("Yönetim Göreviniz", ["Başkan","Başkan Y.","Sayman","Genel Sekreter"])
+            alan = st.selectbox("Bölümünüz", [
+                "Sosyal Medya ve Tasarım", 
+                "İletişim", 
+                "İnsan Kaynakları", 
+                "Projeler ve Koordinatörlükler", 
+                "Etkinlik"
+            ])
+        elif role == "Bölüm Başkanı":
+            alan = st.selectbox("Başkanlığınız", [
+                "Sosyal Medya ve Tasarım Başkanı", 
+                "İletişim Başkanı", 
+                "İnsan Kaynakları Başkanı", 
+                "Projeler ve Koordinatörlükler Başkanı", 
+                "Etkinlik Başkanı"
+            ])
+        else: # Moderatör
+            alan = st.selectbox("Yönetim Göreviniz", [
+                "Başkan", 
+                "Başkan Yardımcısı", 
+                "Sayman", 
+                "Genel Sekreter", 
+                "Uygulama Moderatörü"
+            ])
             
         if st.button("Kayıt Ol", use_container_width=True):
             if len(ru) < 3 or len(rp) < 3:
@@ -400,8 +438,7 @@ else:
     with st.sidebar:
         st.markdown(f"### 👤 {cu.username}")
         st.markdown(f"**Rol:** {cu.role}")
-        st.markdown(f"**Alan:** {cu.alan or '—'}")
-        st.markdown(f"**E-Posta:** {cu.email or 'Belirtilmedi'}")
+        st.markdown(f"**Görev:** {cu.alan or '—'}")
         st.markdown(f"**Puan:** ⭐ {cu.points}")
         st.divider()
         if st.button("🚪 Çıkış Yap"):
@@ -412,19 +449,22 @@ else:
     show_header()
     BADGE = {"Acil":"badge-acil","Yüksek":"badge-yuksek","Orta":"badge-orta","Düşük":"badge-dusuk"}
 
-    # --- MODERATÖR PANELİ ---
+    # ==========================================
+    # MODERATÖR PANELİ (En Üst Yetki)
+    # ==========================================
     if st.session_state.role == "Moderatör":
-        t1, t2, t3 = st.tabs(["📌 Görev Ata","📋 Tüm Görevler","🏆 Liderlik"])
+        t1, t2, t3 = st.tabs(["📌 Görev Ata", "📋 Yönetim & İptal", "🏆 Liderlik"])
 
         with t1:
             st.markdown("#### Yeni Görev Oluştur")
-            members   = db.query(User).filter(User.role=="Üye").all()
-            user_list = [f"{u.username} ({u.alan or '—'})" for u in members]
+            # Moderatör herkese atayabilir.
+            members   = db.query(User).all()
+            user_list = [f"{u.username} ({u.role} - {u.alan})" for u in members if u.username != cu.username]
 
             if not user_list:
-                st.info("Sistemde kayıtlı üye yok.")
+                st.info("Sistemde atanacak başka kimse yok.")
             else:
-                sel         = st.selectbox("Görevi Alacak Üye", user_list)
+                sel         = st.selectbox("Görevi Alacak Kişi", user_list)
                 assigned_to = sel.split(" (")[0]
                 ttitle      = st.text_input("Görev Başlığı")
                 tdesc       = st.text_area("Açıklama", height=80)
@@ -442,37 +482,120 @@ else:
                             status="Bekliyor", due_date=str(tdue)
                         ))
                         db.commit()
+                        push_notification("Görev Atandı ✅", f"'{ttitle}' → {assigned_to}")
                         
-                        # Uygulama içi tarayıcı bildirimi
-                        push_notification("Görev Atandı ✅", f"'{ttitle}' → {assigned_to} ({tpts} puan, Son: {tdue})")
-                        
-                        # Arka Plan E-Posta Gönderimi
                         target_user = db.query(User).filter(User.username==assigned_to).first()
                         if target_user and target_user.email:
-                            email_sent = send_email_notification(target_user.email, ttitle, tdesc, tprio, tpts, str(tdue))
-                            if email_sent:
-                                st.success(f"✅ Görev atandı ve {target_user.username} kişisine e-posta bildirimi gönderildi!")
-                            else:
-                                st.warning(f"✅ Görev atandı ancak e-posta gönderilemedi (Sunucu ayarları eksik olabilir).")
-                        else:
-                            st.success(f"✅ Görev '{assigned_to}' adlı üyeye atandı!")
+                            send_email_notification(target_user.email, ttitle, tdesc, tprio, tpts, str(tdue))
+                        st.success(f"✅ Görev '{assigned_to}' adlı kişiye atandı!")
 
         with t2:
-            st.markdown("#### Tüm Görevler")
-            all_t = db.query(Task).all()
+            st.markdown("#### Sistemdeki Tüm Görevler")
+            all_t = db.query(Task).order_by(Task.id.desc()).all()
             if all_t:
-                df = pd.DataFrame(
-                    [[t.id, t.assigned_to, t.title, t.priority, t.points, t.status, t.due_date or "—", t.assigned_by] for t in all_t],
-                    columns=["ID","Atanan","Görev","Öncelik","Puan","Durum","Son Tarih","Atayan"]
-                )
-                st.dataframe(df, use_container_width=True)
+                for t in all_t:
+                    bc = BADGE.get(t.priority, "badge-orta")
+                    status_color = "color:#2DB5A0;" if t.status == "Tamamlandı" else "color:#ef4444;" if t.status == "İptal Edildi" else "color:#eab308;"
+                    
+                    with st.expander(f"{t.id} | {t.title} -> {t.assigned_to} ({t.status})"):
+                        st.markdown(f"**Açıklama:** {t.description}")
+                        st.markdown(f"**Atayan:** {t.assigned_by} | **Puan:** {t.points} | <span style='{status_color}'>**Durum:** {t.status}</span>", unsafe_allow_html=True)
+                        
+                        # İptal Etme Özelliği (Sadece Moderatör görebilir)
+                        if t.status != "İptal Edildi":
+                            st.markdown("<div class='btn-danger'>", unsafe_allow_html=True)
+                            if st.button("🗑 Görevi İptal Et", key=f"cancel_{t.id}"):
+                                # Eğer görev tamamlanmışsa, kişinin puanını geri al
+                                if t.status == "Tamamlandı":
+                                    u = db.query(User).filter(User.username == t.assigned_to).first()
+                                    if u:
+                                        u.points = max(0, u.points - t.points) # Puan sıfırın altına düşmesin
+                                t.status = "İptal Edildi"
+                                db.commit()
+                                st.rerun()
+                            st.markdown("</div>", unsafe_allow_html=True)
             else:
                 st.info("Henüz görev yok.")
 
         with t3:
             render_leaderboard(db)
 
-    # --- ÜYE PANELİ ---
+    # ==========================================
+    # BÖLÜM BAŞKANI PANELİ (Orta Yetki)
+    # ==========================================
+    elif st.session_state.role == "Bölüm Başkanı":
+        t1, t2, t3, t4 = st.tabs(["📋 Görevlerim", "📌 Görev Ata", "👁️ Verdiklerim", "🏆 Liderlik"])
+
+        # 1. Bölüm Başkanının Kendi Görevleri (Tıpkı Üye gibi)
+        with t1:
+            my_tasks = db.query(Task).filter(Task.assigned_to==cu.username, Task.status=="Bekliyor").all()
+            if not my_tasks:
+                st.info("Şu an bekleyen bir göreviniz yok.")
+            else:
+                for t in my_tasks:
+                    bc  = BADGE.get(t.priority, "badge-orta")
+                    st.markdown(f"""
+                    <div class="task-card">
+                      <div class="task-title">📌 {t.title}</div>
+                      <div class="task-meta">{t.description or "—"}</div>
+                      <span class="badge {bc}">{t.priority}</span> ⭐ {t.points} puan
+                    </div>
+                    """, unsafe_allow_html=True)
+                    if st.button("✔ Tamamla", key=f"done_bb_{t.id}"):
+                        t.status    = "Tamamlandı"
+                        cu.points  += t.points
+                        db.commit()
+                        st.rerun()
+
+        # 2. Üyelere Görev Atama 
+        with t2:
+            st.markdown("#### Üyelere Yeni Görev Ata")
+            # Bölüm Başkanı SADECE 'Üye' rolündekilere görev atayabilir.
+            only_members = db.query(User).filter(User.role == "Üye").all()
+            user_list = [f"{u.username} ({u.alan})" for u in only_members]
+
+            if not user_list:
+                st.info("Sistemde atanacak 'Üye' bulunmuyor.")
+            else:
+                sel         = st.selectbox("Görevi Alacak Üye", user_list)
+                assigned_to = sel.split(" (")[0]
+                ttitle      = st.text_input("Görev Başlığı")
+                tdesc       = st.text_area("Açıklama", height=80)
+                tprio       = st.selectbox("Öncelik", ["Acil","Yüksek","Orta","Düşük"])
+                tpts        = st.number_input("Puan", min_value=1, value=10, step=1)
+                tdue        = st.date_input("Son Tarih 🗓", value=date.today() + timedelta(days=7), min_value=date.today())
+                
+                if st.button("📌 Görevi Ata", use_container_width=True):
+                    if not ttitle.strip():
+                        st.warning("Görev başlığı boş olamaz.")
+                    else:
+                        db.add(Task(
+                            assigned_to=assigned_to, assigned_by=st.session_state.username,
+                            title=ttitle, description=tdesc, priority=tprio, points=tpts,
+                            status="Bekliyor", due_date=str(tdue)
+                        ))
+                        db.commit()
+                        target_user = db.query(User).filter(User.username==assigned_to).first()
+                        if target_user and target_user.email:
+                            send_email_notification(target_user.email, ttitle, tdesc, tprio, tpts, str(tdue))
+                        st.success(f"✅ Görev '{assigned_to}' adlı üyeye başarıyla atandı!")
+
+        # 3. Kendi Atadığı Görevlerin Durumu
+        with t3:
+            st.markdown("#### Benim Atadığım Görevler")
+            my_given = db.query(Task).filter(Task.assigned_by==cu.username).order_by(Task.id.desc()).all()
+            if my_given:
+                for t in my_given:
+                    st.write(f"**{t.title}** -> *{t.assigned_to}* ({t.status})")
+            else:
+                st.info("Henüz görev atamadınız.")
+
+        with t4:
+            render_leaderboard(db)
+
+    # ==========================================
+    # ÜYE PANELİ (Standart Yetki)
+    # ==========================================
     elif st.session_state.role == "Üye":
         pending_n   = db.query(Task).filter(Task.assigned_to==cu.username, Task.status=="Bekliyor").count()
         completed_n = db.query(Task).filter(Task.assigned_to==cu.username, Task.status=="Tamamlandı").count()
