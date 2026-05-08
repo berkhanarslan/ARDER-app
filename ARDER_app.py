@@ -220,6 +220,7 @@ Uygulamaya girerek görevi tamamlayabilirsin.
         server.quit()
         return True
     except Exception as e:
+        st.error(f"MAİL HATASI DETAYI: {e}") # Bize hatanın tam nedenini ekrana yazdıracak
         return False
 
 # ══════════════════════════════════════════════════════════
