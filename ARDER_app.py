@@ -24,6 +24,7 @@ class User(Base):
     username = Column(String, unique=True, index=True)
     password = Column(String)
     role = Column(String) # Moderatör veya Üye
+    alan = Column(String, default="Belirtilmedi") # YENİ: Alan / Departman
     points = Column(Integer, default=0)
 
 class Task(Base):
@@ -42,7 +43,9 @@ def init_db():
     Base.metadata.create_all(bind=engine)
     try:
         with engine.connect() as conn:
+            # Eksik sütunları otomatik ekleme güvenlik yaması
             conn.execute(text("ALTER TABLE tasks ADD COLUMN IF NOT EXISTS points INTEGER DEFAULT 10;"))
+            conn.execute(text("ALTER TABLE users ADD COLUMN IF NOT EXISTS alan VARCHAR DEFAULT 'Belirtilmedi';"))
             conn.commit()
     except Exception as e:
         pass 
@@ -65,7 +68,6 @@ def show_header():
     col_logo, col_title = st.columns([1, 10])
     with col_logo:
         try:
-            # Dosya adını logo.jpg olarak güncelledik
             st.image("logo.jpg", width=70)
         except:
             pass 
@@ -151,13 +153,17 @@ def render_custom_leaderboard(db):
         for i, u in enumerate(all_users):
             r = i + 1
             rc = f"rank-{r}" if r <= 3 else "rank-other"
+            
+            # Alanı yazdırmak için kontrol (Eski kullanıcılarda None olabilir)
+            alan_bilgisi = u.alan if u.alan else "Belirtilmedi"
+            
             html += f"""
             <div class='list-item'>
                 <div class='rank-box {rc}'>{r}</div>
                 <div class='avatar' style='width:45px; height:45px; font-size:18px; margin-bottom:0; margin-right:15px;'>{u.username[0].upper()}</div>
                 <div class='list-info'>
                     <span class='list-name'>{u.username}</span>
-                    <span class='list-role'>{u.role}</span>
+                    <span class='list-role'>{u.role} | {alan_bilgisi}</span>
                 </div>
                 <div class='list-points-wrap'>
                     <div class='list-points'>{u.points}</div>
@@ -202,7 +208,26 @@ if not st.session_state.logged_in:
         st.subheader("Yeni Hesap Oluştur")
         reg_user = st.text_input("Belirleyeceğiniz Kullanıcı Adı", key="reg_user")
         reg_pass = st.text_input("Şifre Belirleyin", type="password", key="reg_pass")
+        
+        # YENİ: Dinamik Alan Seçimi
         reg_role = st.selectbox("Rolünüz", ["Üye", "Moderatör"])
+        
+        if reg_role == "Üye":
+            reg_alan = st.selectbox("Alanınız / Departmanınız", [
+                "Normal Üye", 
+                "Sosyal Medya ve Tasarım", 
+                "İletişim", 
+                "İnsan Kaynakları", 
+                "Projeler ve Koordinatörlükler", 
+                "Etkinlik"
+            ])
+        else: # Moderatör
+            reg_alan = st.selectbox("Yönetim Göreviniz", [
+                "Başkan", 
+                "Başkan Y.", 
+                "Sayman", 
+                "Genel Sekreter"
+            ])
         
         if st.button("Kayıt Ol"):
             existing_user = db.query(User).filter(User.username == reg_user).first()
@@ -211,7 +236,8 @@ if not st.session_state.logged_in:
             elif len(reg_user) < 3 or len(reg_pass) < 3:
                 st.warning("Kullanıcı adı ve şifre en az 3 karakter olmalıdır.")
             else:
-                new_user = User(username=reg_user, password=reg_pass, role=reg_role, points=0)
+                # Yeni kayıt oluşturulurken 'alan' da ekleniyor
+                new_user = User(username=reg_user, password=reg_pass, role=reg_role, alan=reg_alan, points=0)
                 db.add(new_user)
                 db.commit()
                 st.success("Kayıt başarılı! Lütfen 'Giriş Yap' sekmesinden giriş yapın.")
@@ -221,9 +247,12 @@ else:
     with st.sidebar:
         st.title("👤 Profilim")
         st.write(f"**Kullanıcı:** {st.session_state.username}")
-        st.write(f"**Rol:** {st.session_state.role}")
         
+        # Kullanıcı bilgilerini çekme
         current_user = db.query(User).filter(User.username == st.session_state.username).first()
+        alan_bilgisi = current_user.alan if current_user.alan else "Belirtilmedi"
+        
+        st.write(f"**Rol:** {st.session_state.role} ({alan_bilgisi})")
         st.write(f"**Puan:** {current_user.points}")
         
         st.divider()
@@ -243,12 +272,17 @@ else:
         with tab_mod1:
             st.subheader("Yeni Görev Oluştur")
             users = db.query(User).filter(User.role == "Üye").all()
-            user_list = [u.username for u in users]
+            
+            # İsimlerin yanına departmanlarını da ekleyelim ki kime görev atandığı daha net olsun
+            user_list = [f"{u.username} ({u.alan if u.alan else 'Belirtilmedi'})" for u in users]
             
             if not user_list:
                 st.info("Sistemde henüz kayıtlı 'Üye' bulunmuyor. Görev atamak için üyelerin kayıt olmasını bekleyin.")
             else:
-                assigned_to = st.selectbox("Görevi Alacak Üye", user_list)
+                assigned_to_selection = st.selectbox("Görevi Alacak Üye", user_list)
+                # Sadece isimi almak için split işlemi
+                assigned_to = assigned_to_selection.split(" (")[0] if assigned_to_selection else ""
+                
                 task_title = st.text_input("Görev Başlığı")
                 task_desc = st.text_area("Görev Açıklaması")
                 task_priority = st.selectbox("Öncelik", ["Düşük", "Orta", "Yüksek", "Acil"])
