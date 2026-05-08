@@ -182,13 +182,16 @@ init_db()
 # 6. ARKA PLAN E-POSTA GÖNDERME FONKSİYONU
 # ══════════════════════════════════════════════════════════
 def send_email_notification(to_email, task_title, task_desc, priority, points, due_date):
-    """Görev atandığında kullanıcının Gmail adresine bildirim atar."""
+    """Görev atandığında kullanıcının e-posta adresine bildirim atar."""
     try:
+        # Secrets'tan mail ayarlarını çekiyoruz
         sender_email = st.secrets.get("EMAIL_USER", "")
         sender_pass  = st.secrets.get("EMAIL_PASS", "")
+        smtp_server  = st.secrets.get("SMTP_SERVER", "smtp.gmail.com") # Varsayılan Gmail
+        smtp_port    = int(st.secrets.get("SMTP_PORT", 587)) # Varsayılan port 587
         
         if not sender_email or not sender_pass or not to_email:
-            return False # Ayarlar eksikse çökmeyi önle, sessizce geç.
+            return False 
 
         msg = MIMEMultipart()
         msg['From'] = f"ARDER Sistem <{sender_email}>"
@@ -212,15 +215,15 @@ Uygulamaya girerek görevi tamamlayabilirsin.
 """
         msg.attach(MIMEText(body, 'plain'))
 
-        # Gmail SMTP Sunucusuna bağlan
-        server = smtplib.SMTP('smtp.gmail.com', 587)
+        # Kendi Mail Sunucuna (SMTP) bağlan
+        server = smtplib.SMTP(smtp_server, smtp_port)
         server.starttls()
         server.login(sender_email, sender_pass)
         server.send_message(msg)
         server.quit()
         return True
     except Exception as e:
-        st.error(f"MAİL HATASI DETAYI: {e}") # Bize hatanın tam nedenini ekrana yazdıracak
+        st.error(f"MAİL HATASI DETAYI: {e}")
         return False
 
 # ══════════════════════════════════════════════════════════
