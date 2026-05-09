@@ -387,13 +387,13 @@ if not st.session_state.logged_in:
         rmail = st.text_input("E-Posta Adresiniz (Bildirimler için)", key="rmail")
         rp    = st.text_input("Şifre", type="password", key="rp")
         
-        role = st.selectbox("Statünüz", ["Üye", "Bölüm Başkanı", "Moderatör"])
+        role = st.selectbox("Statünüz", ["Üye", "Birim Başkanı", "Moderatör"])
         
         if role == "Üye":
-            alan = st.selectbox("Bölümünüz", [
-                "Sosyal Medya ve Tasarım", "İletişim", "İnsan Kaynakları", "Projeler ve Koordinatörlükler", "Etkinlik"
+            alan = st.selectbox("Biriminiz", [
+                "Üye", "Sosyal Medya ve Tasarım", "İletişim", "İnsan Kaynakları", "Projeler ve Koordinatörlükler", "Etkinlik"
             ])
-        elif role == "Bölüm Başkanı":
+        elif role == "Birim Başkanı":
             alan = st.selectbox("Başkanlığınız", [
                 "Sosyal Medya ve Tasarım Başkanı", "İletişim Başkanı", "İnsan Kaynakları Başkanı", "Projeler ve Koordinatörlükler Başkanı", "Etkinlik Başkanı"
             ])
@@ -499,7 +499,6 @@ else:
             else:
                 st.info("Henüz görev yok.")
 
-        # YENİ: Üyeleri ve Bölüm Başkanlarını Silme Sekmesi
         with t3:
             st.markdown("#### Dernek Üyeleri ve Yönetim")
             st.info("💡 Sildiğiniz kişinin hesabı ve ona atanmış tüm görevler sistemden kalıcı olarak temizlenir.")
@@ -517,9 +516,7 @@ else:
                         with c2:
                             st.markdown("<div class='btn-danger'>", unsafe_allow_html=True)
                             if st.button("🗑 Sil", key=f"del_user_{u.id}"):
-                                # Kişiye ait tüm görevleri sil
                                 db.query(Task).filter(Task.assigned_to == u.username).delete()
-                                # Kişiyi sistemden sil
                                 db.delete(u)
                                 db.commit()
                                 st.rerun()
@@ -530,9 +527,9 @@ else:
             render_leaderboard(db)
 
     # ==========================================
-    # BÖLÜM BAŞKANI PANELİ (Orta Yetki)
+    # BİRİM BAŞKANI PANELİ (Orta Yetki)
     # ==========================================
-    elif st.session_state.role == "Bölüm Başkanı":
+    elif st.session_state.role == "Birim Başkanı":
         t1, t2, t3, t4 = st.tabs(["📋 Görevlerim", "📌 Görev Ata", "👁️ Verdiklerim", "🏆 Liderlik"])
 
         with t1:
