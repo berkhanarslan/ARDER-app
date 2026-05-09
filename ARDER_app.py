@@ -61,6 +61,7 @@ def get_static_assets():
     .stat-card .value {{ font-size:1.6rem; font-weight:900; color:#1A2744; line-height:1; }}
     .task-card {{ background:#fff; border-radius:14px; box-shadow:0 3px 12px rgba(26,39,68,0.08); padding:1rem; margin-bottom:0.8rem; border-bottom:3px solid #2DB5A0; }}
     .task-card.done {{ border-bottom-color:#a0cfcc; opacity:0.82; }}
+    .task-card.canceled {{ border-bottom-color:#ef4444; opacity:0.6; }}
     .task-title {{ font-weight:700; color:#1A2744; font-size:0.97rem; }}
     .task-meta {{ font-size:0.79rem; color:#5a7a76; margin:0.3rem 0; }}
     .badge {{ display:inline-block; padding:0.18rem 0.6rem; border-radius:20px; font-size:0.7rem; font-weight:700; }}
@@ -132,7 +133,7 @@ def init_db():
             ]:
                 try: conn.execute(text(stmt)); conn.commit()
                 except: pass
-    except: pass # Race condition çakışmasını önler
+    except: pass 
 
 init_db()
 
@@ -185,7 +186,7 @@ def show_header():
     st.markdown(f'<div class="app-header">{LOGO_HTML}<div><div class="brand-name">ARDER</div><div class="brand-sub">Akademik Renkler Derneği</div></div></div>', unsafe_allow_html=True)
 
 # ══════════════════════════════════════════════════════════
-# 5. LİDERLİK TABLOSU (60 Saniyede Bir Yenilenen Cache)
+# 5. LİDERLİK TABLOSU
 # ══════════════════════════════════════════════════════════
 @st.cache_data(ttl=60)
 def generate_leaderboard_html(users_dict):
@@ -209,7 +210,7 @@ def render_leaderboard(db):
     st.markdown(generate_leaderboard_html(u_dict), unsafe_allow_html=True)
 
 # ══════════════════════════════════════════════════════════
-# 6. OTURUM BAŞLATMA (COOKIE ve RELOAD ÇÖZÜMÜ İLE)
+# 6. OTURUM BAŞLATMA
 # ══════════════════════════════════════════════════════════
 for k in ["logged_in","username","role"]:
     if k not in st.session_state: st.session_state[k] = False if k=="logged_in" else ""
@@ -230,8 +231,6 @@ def check_monthly_reset(db):
 check_monthly_reset(db)
 _flush_notification()
 
-# Sayfa yenilendiğinde Python'un tarayıcıdan gelen çerezi okuyabilmesi 
-# için 0.4 sn beklemesini sağlıyoruz. (Uygulamayı yavaşlatmaz, girişte tutar)
 if 'first_load' not in st.session_state:
     time.sleep(0.4)
     st.session_state.first_load = True
@@ -257,7 +256,7 @@ if not st.session_state.logged_in:
         if st.button("Giriş Yap"):
             user = db.query(User).filter(User.username==lu, User.password==lp).first()
             if user:
-                controller.set('arder_user', user.username, max_age=2592000) # 30 gün kalıcı çerez
+                controller.set('arder_user', user.username, max_age=2592000) 
                 st.session_state.update({"logged_in": True, "username": user.username, "role": user.role})
                 push_notification("ARDER'e Hoş Geldin! 👋", f"Merhaba {user.username}, başarıyla giriş yaptın.")
                 st.rerun()
@@ -322,15 +321,19 @@ else:
                 c1, c2 = st.columns(2)
                 with c1: tp = st.selectbox("Öncelik", ["Acil","Yüksek","Orta","Düşük"])
                 with c2: tpts = st.number_input("Puan", min_value=1, value=10)
-                t_due = st.date_input("Son Tarih", value=date.today() + timedelta(days=7))
-                if st.button("🚀 Görevi Gönder"):
-                    db.add(Task(assigned_to=assigned_to, assigned_by=cu.username, title=tt, description=td, priority=tp, points=tpts, status="Bekliyor", due_date=str(t_due)))
-                    db.commit()
-                    target = db.query(User).filter(User.username==assigned_to).first()
-                    if target and target.email: trigger_background_email(target.email, tt, td, tp, tpts, str(t_due))
-                    push_notification("Görev Atandı ✅", f"'{tt}' -> {assigned_to}")
-                    st.success("Görev başarıyla atandı!")
-                    
+                t_due = st.date_input("Son Tarih (Deadline) 🗓", value=date.today() + timedelta(days=7), min_value=date.today())
+                
+                if st.button("📌 Görevi Ata", use_container_width=True):
+                    if not ttitle.strip():
+                        st.warning("Görev başlığı boş olamaz.")
+                    else:
+                        db.add(Task(assigned_to=assigned_to, assigned_by=cu.username, title=tt, description=td, priority=tp, points=tpts, status="Bekliyor", due_date=str(t_due)))
+                        db.commit()
+                        target = db.query(User).filter(User.username==assigned_to).first()
+                        if target and target.email: trigger_background_email(target.email, tt, td, tp, tpts, str(t_due))
+                        push_notification("Görev Atandı ✅", f"'{tt}' -> {assigned_to}")
+                        st.success("Görev başarıyla atandı!")
+                        
         with t2:
             all_t = db.query(Task).order_by(Task.id.desc()).limit(50).all()
             for t in all_t:
@@ -364,15 +367,16 @@ else:
                     st.markdown("</div>", unsafe_allow_html=True)
             
             st.divider()
-            st.markdown("#### ⚠️ TEHLİKELİ BÖLGE")
-            st.warning("Aşağıdaki buton sistemdeki **KENDİNİZ DAHİL** tüm kullanıcıları, görevleri ve puanları kalıcı olarak siler. Geri dönüşü yoktur!")
-            if st.button("🚨 TÜM SİSTEMİ SIFIRLA VE SİL", type="primary"):
+            st.markdown("#### ⚠️ SİSTEMİ SIFIRLAMA")
+            st.warning("Aşağıdaki buton sistemdeki **TÜM GÖREVLERİ ve PUANLARI** sıfırlar. Üyelerin kayıtları SİLİNMEZ. Bu işlemin geri dönüşü yoktur!")
+            if st.button("🚨 TÜM GÖREVLERİ VE PUANLARI SIFIRLA", type="primary"):
+                # Sadece görevleri sil
                 db.query(Task).delete()
-                db.query(User).delete()
-                db.query(AppSettings).delete()
+                # Herkesin puanını sıfırla (üyeleri silme)
+                db.query(User).update({User.points: 0})
                 db.commit()
-                controller.remove('arder_user')
-                st.session_state.update({"logged_in": False, "username": "", "role": ""})
+                st.success("Tüm görevler silindi ve puanlar sıfırlandı!")
+                time.sleep(1)
                 st.rerun()
 
         with t4: render_leaderboard(db)
