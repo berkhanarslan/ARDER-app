@@ -21,11 +21,10 @@ st.set_page_config(page_title="ARDER", page_icon="🦚", layout="centered", init
 controller = CookieController()
 
 # ══════════════════════════════════════════════════════════
-# 2. MEGA-CACHE: STATİK ASSETLER (TURBO HIZ İÇİN)
+# 2. MEGA-CACHE: STATİK ASSETLER
 # ══════════════════════════════════════════════════════════
 @st.cache_data
 def get_static_assets():
-    # Logo B64
     logo_b64 = ""
     for ext in ["logo.png","logo.jpg","logo.jpeg"]:
         if os.path.exists(ext):
@@ -36,7 +35,6 @@ def get_static_assets():
     else:
         logo_html = '<span style="font-size:46px;">🦚</span>'
 
-    # PWA & CSS
     _ICON_SVG = """<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><rect width="512" height="512" rx="100" fill="#1A2744"/><text x="256" y="370" text-anchor="middle" font-size="340" font-weight="900" fill="#2DB5A0" font-family="Arial,sans-serif">A</text><text x="256" y="460" text-anchor="middle" font-size="68" font-weight="700" fill="#1976D2" font-family="Arial,sans-serif">ARDER</text></svg>"""
     _ICON_URI  = f"data:image/svg+xml;base64,{base64.b64encode(_ICON_SVG.encode()).decode()}"
     _manifest  = {"name":"ARDER","short_name":"ARDER","display":"standalone","background_color":"#f0f7f6","theme_color":"#1A2744","icons":[{"src":_ICON_URI,"sizes":"512x512","type":"image/svg+xml","purpose":"any maskable"}]}
@@ -186,28 +184,73 @@ def show_header():
     st.markdown(f'<div class="app-header">{LOGO_HTML}<div><div class="brand-name">ARDER</div><div class="brand-sub">Akademik Renkler Derneği</div></div></div>', unsafe_allow_html=True)
 
 # ══════════════════════════════════════════════════════════
-# 5. LİDERLİK TABLOSU
+# 5. LİDERLİK TABLOSU (%100 GARANTİLİ HTML İSKELETİ)
 # ══════════════════════════════════════════════════════════
 @st.cache_data(ttl=60)
 def generate_leaderboard_html(users_dict):
-    html = """<style>.pod{display:flex;justify-content:center;align-items:flex-end;gap:10px;height:210px;margin-bottom:18px;}.pc{display:flex;flex-direction:column;align-items:center;width:30%;max-width:110px;}.av{width:48px;height:48px;border-radius:8px;margin-bottom:6px;background:linear-gradient(135deg,#1976D2,#2DB5A0);color:#fff;display:flex;align-items:center;justify-content:center;font-size:20px;font-weight:900;}.pn{font-size:11px;font-weight:700;color:#1A2744;text-align:center;}.pp{font-size:10px;color:#9ca3af;margin-bottom:5px;}.blk{width:100%;display:flex;justify-content:center;padding-top:10px;font-weight:700;font-size:15px;border-radius:6px 6px 0 0;color:#fff;}.g{height:140px;background:linear-gradient(135deg,#f59e0b,#d97706);}.s{height:105px;background:#cbd5e1;color:#475569;}.b{height:80px;background:#d97706;}.li{display:flex;align-items:center;background:#fff;padding:9px 12px;border-radius:10px;margin-bottom:8px;box-shadow:0 2px 8px rgba(0,0,0,0.05);}.rb{width:30px;height:30px;display:flex;justify-content:center;align-items:center;border-radius:6px;font-weight:700;font-size:12px;color:#fff;margin-right:10px;}.r1{background:#f59e0b;}.r2{background:#cbd5e1;color:#475569;}.r3{background:#d97706;}.rx{background:#f1f5f9;color:#64748b;}.ln{font-weight:700;color:#1A2744;font-size:13px;}.lr{font-size:10px;color:#6b7280;}.lp{margin-left:auto;font-weight:800;color:#2DB5A0;font-size:16px;}</style>
-    <div style="padding:8px;"><div style="color:#1A2744;font-size:19px;font-weight:800;">🏆 Liderlik Tablosu</div><div style="color:#6b7280;font-size:12px;margin-bottom:18px;">Aylık olarak sıfırlanır!</div>"""
+    # ÇÖZÜM: HTML iskeletini bağımsız bir mini sayfa (iframe) formatına çevirdik
+    html = """
+    <!DOCTYPE html>
+    <html>
+    <head>
+    <meta charset="utf-8">
+    <style>
+    body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: transparent; margin: 0; padding: 0; }
+    .pod{display:flex;justify-content:center;align-items:flex-end;gap:10px;height:210px;margin-bottom:18px;}
+    .pc{display:flex;flex-direction:column;align-items:center;width:30%;max-width:110px;}
+    .av{width:48px;height:48px;border-radius:8px;margin-bottom:6px;background:linear-gradient(135deg,#1976D2,#2DB5A0);color:#fff;display:flex;align-items:center;justify-content:center;font-size:20px;font-weight:900;}
+    .pn{font-size:11px;font-weight:700;color:#1A2744;text-align:center;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;width:100%;}
+    .pp{font-size:10px;color:#9ca3af;margin-bottom:5px;}
+    .blk{width:100%;display:flex;justify-content:center;padding-top:10px;font-weight:700;font-size:15px;border-radius:6px 6px 0 0;color:#fff;}
+    .g{height:140px;background:linear-gradient(135deg,#f59e0b,#d97706);}
+    .s{height:105px;background:#cbd5e1;color:#475569;}
+    .b{height:80px;background:#d97706;}
+    .li{display:flex;align-items:center;background:#fff;padding:9px 12px;border-radius:10px;margin-bottom:8px;box-shadow:0 2px 8px rgba(0,0,0,0.05);}
+    .rb{width:30px;height:30px;display:flex;justify-content:center;align-items:center;border-radius:6px;font-weight:700;font-size:12px;color:#fff;margin-right:10px;flex-shrink:0;}
+    .r1{background:#f59e0b;}
+    .r2{background:#cbd5e1;color:#475569;}
+    .r3{background:#d97706;}
+    .rx{background:#f1f5f9;color:#64748b;}
+    .ln{font-weight:700;color:#1A2744;font-size:13px;}
+    .lr{font-size:10px;color:#6b7280;}
+    .lp{margin-left:auto;font-weight:800;color:#2DB5A0;font-size:16px;}
+    </style>
+    </head>
+    <body>
+    <div style="padding:8px;">
+    <div style="color:#1A2744;font-size:19px;font-weight:800;">🏆 Liderlik Tablosu</div>
+    <div style="color:#6b7280;font-size:12px;margin-bottom:18px;">Aylık olarak sıfırlanır!</div>
+    """
+    
     if users_dict:
-        u1, u2, u3 = users_dict[0], users_dict[1] if len(users_dict)>1 else None, users_dict[2] if len(users_dict)>2 else None
+        u1 = users_dict[0]
+        u2 = users_dict[1] if len(users_dict) > 1 else None
+        u3 = users_dict[2] if len(users_dict) > 2 else None
+        
         html += "<div class='pod'>"
-        html += f"<div class='pc'><div class='av'>{u2['username'][0].upper()}</div><div class='pn'>{u2['username']}</div><div class='pp'>{u2['points']} pts</div><div class='blk s'>🥈</div></div>" if u2 else "<div class='pc'></div>"
+        if u2: html += f"<div class='pc'><div class='av'>{u2['username'][0].upper()}</div><div class='pn'>{u2['username']}</div><div class='pp'>{u2['points']} pts</div><div class='blk s'>🥈</div></div>"
+        else: html += "<div class='pc'></div>"
+        
         html += f"<div class='pc'><div class='av'>{u1['username'][0].upper()}</div><div class='pn'>{u1['username']}</div><div class='pp'>{u1['points']} pts</div><div class='blk g'>🥇</div></div>"
-        html += f"<div class='pc'><div class='av'>{u3['username'][0].upper()}</div><div class='pn'>{u3['username']}</div><div class='pp'>{u3['points']} pts</div><div class='blk b'>🥉</div></div>" if u3 else "<div class='pc'></div>"
+        
+        if u3: html += f"<div class='pc'><div class='av'>{u3['username'][0].upper()}</div><div class='pn'>{u3['username']}</div><div class='pp'>{u3['points']} pts</div><div class='blk b'>🥉</div></div>"
+        else: html += "<div class='pc'></div>"
         html += "</div>"
+        
         for i, u in enumerate(users_dict):
-            r, rc = i+1, f"r{i+1}" if i<3 else "rx"
-            html += f"<div class='li'><div class='rb {rc}'>{r}</div><div class='av' style='width:36px;height:36px;font-size:15px;margin-bottom:0;margin-right:10px;'>{u['username'][0].upper()}</div><div><div class='ln'>{u['username']}</div><div class='lr'>{u['role']} | {u['alan']}</div></div><div class='lp'>{u['points']}<span style='font-size:9px;color:#9ca3af;'> pts</span></div></div>"
-    return html + "</div>"
+            r = i + 1
+            rc = f"r{r}" if r <= 3 else "rx"
+            html += f"<div class='li'><div class='rb {rc}'>{r}</div><div class='av' style='width:36px;height:36px;font-size:15px;margin-bottom:0;margin-right:10px;'>{u['username'][0].upper()}</div><div style='overflow:hidden;'><div class='ln'>{u['username']}</div><div class='lr'>{u['role']} | {u['alan']}</div></div><div class='lp'>{u['points']}<span style='font-size:9px;color:#9ca3af;'> pts</span></div></div>"
+    
+    html += "</div></body></html>"
+    return html
 
 def render_leaderboard(db):
     users = db.query(User).order_by(User.points.desc()).all()
     u_dict = [{"username": u.username, "points": u.points, "role": u.role, "alan": u.alan or "—"} for u in users]
-    st.markdown(generate_leaderboard_html(u_dict), unsafe_allow_html=True)
+    html_code = generate_leaderboard_html(u_dict)
+    # ÇÖZÜM: st.markdown yerine components.html kullanıyoruz, böylece ASLA bozulmaz.
+    components.html(html_code, height=650, scrolling=True)
 
 # ══════════════════════════════════════════════════════════
 # 6. OTURUM BAŞLATMA
@@ -352,7 +395,7 @@ else:
                         st.markdown("</div>", unsafe_allow_html=True)
                         
         with t3:
-            st.info("💡 Sildiğiniz kişinin hesabı ve ona atanmış tüm görevler kalıcı olarak temizlenir.")
+            st.info("💡 Buradan sildiğiniz kişilerin hesapları ve ona atanmış tüm görevler kalıcı olarak temizlenir.")
             users = db.query(User).filter(User.username != cu.username).all()
             for u in users:
                 c1, c2 = st.columns([3, 1])
