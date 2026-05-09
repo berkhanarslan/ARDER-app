@@ -10,10 +10,11 @@ from datetime import datetime, date, timedelta
 import smtplib
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
-import threading # YENİ: Arka plan işlemleri için
+import threading
+from streamlit_cookies_controller import CookieController # YENİ: Kalıcı oturum için
 
 # ══════════════════════════════════════════════════════════
-# 1. SAYFA YAPISI VE ÖN BELLEK (CACHE) AYARLARI
+# 1. SAYFA YAPISI VE ÖN BELLEK (CACHE)
 # ══════════════════════════════════════════════════════════
 st.set_page_config(
     page_title="ARDER",
@@ -22,10 +23,9 @@ st.set_page_config(
     initial_sidebar_state="collapsed",
 )
 
-# ══════════════════════════════════════════════════════════
-# 2. PWA MANİFEST + META ETİKETLER
-# ══════════════════════════════════════════════════════════
-@st.cache_data # YENİ: Hızlandırma için SVG ve Manifest'i önbelleğe alıyoruz
+controller = CookieController() # Çerez yöneticisini başlat
+
+@st.cache_data 
 def get_pwa_headers():
     _ICON_SVG = """<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
       <rect width="512" height="512" rx="100" fill="#1A2744"/>
@@ -66,9 +66,6 @@ def get_pwa_headers():
 
 st.markdown(get_pwa_headers(), unsafe_allow_html=True)
 
-# ══════════════════════════════════════════════════════════
-# 3. BİLDİRİM İZNİ
-# ══════════════════════════════════════════════════════════
 components.html("""
 <script>
 if ('Notification' in window && Notification.permission === 'default') {
@@ -78,7 +75,7 @@ if ('Notification' in window && Notification.permission === 'default') {
 """, height=0)
 
 # ══════════════════════════════════════════════════════════
-# 4. CSS
+# 2. CSS 
 # ══════════════════════════════════════════════════════════
 st.markdown("""
 <style>
@@ -132,7 +129,7 @@ div.stDownloadButton>button { background:linear-gradient(90deg,#f0f7f6,#d4f1ec) 
 """, unsafe_allow_html=True)
 
 # ══════════════════════════════════════════════════════════
-# 5. VERİTABANI BAĞLANTISI VE MODELLER (HIZLANDIRILDI)
+# 3. VERİTABANI BAĞLANTISI VE MODELLER
 # ══════════════════════════════════════════════════════════
 try:
     DB_URL = st.secrets["DB_URL"]
@@ -140,7 +137,6 @@ except Exception:
     st.error("⚠️ **DB_URL** bilgisini Streamlit Secrets kısmına ekleyin!")
     st.stop()
 
-# YENİ: Bağlantıyı önbelleğe alıyoruz. Her tıklamada baştan bağlanmayacak.
 @st.cache_resource
 def init_connection():
     return create_engine(DB_URL, pool_pre_ping=True)
@@ -193,13 +189,9 @@ def init_db():
 
 init_db()
 
-# ══════════════════════════════════════════════════════════
-# 6. AYLIK SIFIRLAMA KONTROLÜ
-# ══════════════════════════════════════════════════════════
 def check_monthly_reset(db):
     current_month = datetime.now().strftime("%Y-%m")
     setting = db.query(AppSettings).first()
-    
     if not setting:
         setting = AppSettings(last_reset_month=current_month)
         db.add(setting)
@@ -210,38 +202,21 @@ def check_monthly_reset(db):
         db.commit()
 
 # ══════════════════════════════════════════════════════════
-# 7. E-POSTA VE BİLDİRİM FONKSİYONLARI (ARKA PLAN)
+# 4. YARDIMCI FONKSİYONLAR
 # ══════════════════════════════════════════════════════════
 def send_email_notification(to_email, task_title, task_desc, priority, points, due_date):
-    # YENİ: Bu fonksiyon artık ana sistemi kitlemeyecek, arka planda çalışacak.
     try:
         sender_email = st.secrets.get("EMAIL_USER", "")
         sender_pass  = st.secrets.get("EMAIL_PASS", "")
         smtp_server  = st.secrets.get("SMTP_SERVER", "smtp.gmail.com") 
         smtp_port    = int(st.secrets.get("SMTP_PORT", 587))
-        
-        if not sender_email or not sender_pass or not to_email:
-            return False 
+        if not sender_email or not sender_pass or not to_email: return False 
 
         msg = MIMEMultipart()
         msg['From'] = f"ARDER Sistem <{sender_email}>"
         msg['To'] = to_email
         msg['Subject'] = f"📌 Yeni Görev Atandı: {task_title}"
-
-        body = f"""Merhaba,
-
-ARDER Görev Yönetim Sistemi üzerinden sana yeni bir görev atandı!
-
-📌 Görev: {task_title}
-⚡ Öncelik: {priority}
-⭐ Puan: {points}
-🗓 Son Teslim: {due_date}
-
-Açıklama:
-{task_desc if task_desc else 'Açıklama girilmedi.'}
-
-İyi çalışmalar!
-"""
+        body = f"""Merhaba,\n\nARDER Görev Yönetim Sistemi üzerinden sana yeni bir görev atandı!\n\n📌 Görev: {task_title}\n⚡ Öncelik: {priority}\n⭐ Puan: {points}\n🗓 Son Teslim: {due_date}\n\nAçıklama:\n{task_desc if task_desc else 'Açıklama girilmedi.'}\n\nİyi çalışmalar!"""
         msg.attach(MIMEText(body, 'plain'))
         server = smtplib.SMTP(smtp_server, smtp_port)
         server.starttls()
@@ -249,20 +224,10 @@ Açıklama:
         server.send_message(msg)
         server.quit()
         return True
-    except Exception as e:
-        return False
+    except: return False
 
-# YARDIMCI FONKSİYON: E-postayı Thread (arka plan) olarak başlatır
 def trigger_background_email(to_email, task_title, task_desc, priority, points, due_date):
-    thread = threading.Thread(target=send_email_notification, args=(to_email, task_title, task_desc, priority, points, due_date))
-    thread.start()
-
-_defaults = {"logged_in":False,"username":"","role":"","_notif_title":None,"_notif_body":None}
-for k, v in _defaults.items():
-    if k not in st.session_state:
-        st.session_state[k] = v
-
-def get_session(): return SessionLocal()
+    threading.Thread(target=send_email_notification, args=(to_email, task_title, task_desc, priority, points, due_date)).start()
 
 def push_notification(title: str, body: str):
     st.session_state["_notif_title"] = title
@@ -289,7 +254,7 @@ def _flush_notification():
         st.session_state["_notif_title"] = None
         st.session_state["_notif_body"]  = None
 
-def make_ics(title: str, description: str, due_date_str: str) -> bytes:
+def make_ics(title, description, due_date_str):
     try: dt = datetime.strptime(due_date_str, "%Y-%m-%d")
     except: dt = datetime.now() + timedelta(days=7)
     dtstart = dt.strftime("%Y%m%d")
@@ -297,15 +262,9 @@ def make_ics(title: str, description: str, due_date_str: str) -> bytes:
     dtstamp = datetime.utcnow().strftime("%Y%m%dT%H%M%SZ")
     uid     = f"{dtstamp}-arder-task@akademikreklerdernegi"
     desc    = (description or "").replace("\n", "\\n").replace(",", "\\,")
-    ics = (
-        "BEGIN:VCALENDAR\nVERSION:2.0\nPRODID:-//ARDER//Gorev Yonetimi//TR\nCALSCALE:GREGORIAN\nMETHOD:PUBLISH\nBEGIN:VEVENT\n"
-        f"UID:{uid}\nDTSTAMP:{dtstamp}\nDTSTART;VALUE=DATE:{dtstart}\nDTEND;VALUE=DATE:{dtend}\n"
-        f"SUMMARY:📌 {title}\nDESCRIPTION:{desc}\nSTATUS:CONFIRMED\nBEGIN:VALARM\nTRIGGER:-PT1H\n"
-        f"ACTION:DISPLAY\nDESCRIPTION:ARDER Hatırlatma: {title}\nEND:VALARM\nEND:VEVENT\nEND:VCALENDAR\n"
-    )
-    return ics.encode("utf-8")
+    return (f"BEGIN:VCALENDAR\nVERSION:2.0\nPRODID:-//ARDER//Gorev Yonetimi//TR\nCALSCALE:GREGORIAN\nMETHOD:PUBLISH\nBEGIN:VEVENT\nUID:{uid}\nDTSTAMP:{dtstamp}\nDTSTART;VALUE=DATE:{dtstart}\nDTEND;VALUE=DATE:{dtend}\nSUMMARY:📌 {title}\nDESCRIPTION:{desc}\nSTATUS:CONFIRMED\nBEGIN:VALARM\nTRIGGER:-PT1H\nACTION:DISPLAY\nDESCRIPTION:ARDER Hatırlatma: {title}\nEND:VALARM\nEND:VEVENT\nEND:VCALENDAR\n").encode("utf-8")
 
-@st.cache_data # YENİ: Logoyu bir kere okuyup hafızaya alır, her sekmede baştan yüklemez
+@st.cache_data 
 def logo_html(size=42):
     for ext in ["logo.png","logo.jpg","logo.jpeg"]:
         if os.path.exists(ext):
@@ -370,12 +329,29 @@ def show_header():
     """, unsafe_allow_html=True)
 
 _flush_notification()
-db = get_session()
+db = SessionLocal()
 
 check_monthly_reset(db)
 
 # ══════════════════════════════════════════════════════════
-# 8. GİRİŞ / KAYIT EKRANI
+# 5. OTURUM VE ÇEREZ (COOKIE) KONTROLÜ
+# ══════════════════════════════════════════════════════════
+if 'logged_in' not in st.session_state:
+    st.session_state.logged_in = False
+    st.session_state.username = ""
+    st.session_state.role = ""
+
+# Eğer session kapalıysa ama telefonda çerez varsa, otomatik giriş yap!
+saved_cookie_user = controller.get('arder_user')
+if saved_cookie_user and not st.session_state.logged_in:
+    user = db.query(User).filter(User.username == saved_cookie_user).first()
+    if user:
+        st.session_state.logged_in = True
+        st.session_state.username = user.username
+        st.session_state.role = user.role
+
+# ══════════════════════════════════════════════════════════
+# 6. GİRİŞ / KAYIT EKRANI
 # ══════════════════════════════════════════════════════════
 if not st.session_state.logged_in:
     show_header()
@@ -393,6 +369,10 @@ if not st.session_state.logged_in:
                 st.session_state.logged_in = True
                 st.session_state.username  = user.username
                 st.session_state.role      = user.role
+                
+                # Başarılı girişte çerez (cookie) oluştur (30 gün geçerli)
+                controller.set('arder_user', user.username, max_age=2592000) 
+                
                 push_notification("ARDER'e Hoş Geldin! 👋", f"Merhaba {user.username}, başarıyla giriş yaptın.")
                 st.rerun()
             else:
@@ -406,17 +386,11 @@ if not st.session_state.logged_in:
         role = st.selectbox("Statünüz", ["Üye", "Birim Başkanı", "Moderatör"])
         
         if role == "Üye":
-            alan = st.selectbox("Biriminiz", [
-                "Üye", "Sosyal Medya ve Tasarım", "İletişim", "İnsan Kaynakları", "Projeler ve Koordinatörlükler", "Etkinlik"
-            ])
+            alan = st.selectbox("Biriminiz", ["Üye", "Sosyal Medya ve Tasarım", "İletişim", "İnsan Kaynakları", "Projeler ve Koordinatörlükler", "Etkinlik"])
         elif role == "Birim Başkanı":
-            alan = st.selectbox("Başkanlığınız", [
-                "Sosyal Medya ve Tasarım Başkanı", "İletişim Başkanı", "İnsan Kaynakları Başkanı", "Projeler ve Koordinatörlükler Başkanı", "Etkinlik Başkanı"
-            ])
+            alan = st.selectbox("Başkanlığınız", ["Sosyal Medya ve Tasarım Başkanı", "İletişim Başkanı", "İnsan Kaynakları Başkanı", "Projeler ve Koordinatörlükler Başkanı", "Etkinlik Başkanı"])
         else: 
-            alan = st.selectbox("Yönetim Göreviniz", [
-                "Başkan", "Başkan Yardımcısı", "Sayman", "Genel Sekreter", "Uygulama Moderatörü"
-            ])
+            alan = st.selectbox("Yönetim Göreviniz", ["Başkan", "Başkan Yardımcısı", "Sayman", "Genel Sekreter", "Uygulama Moderatörü"])
             
         if st.button("Kayıt Ol", use_container_width=True):
             if len(ru) < 3 or len(rp) < 3:
@@ -431,7 +405,7 @@ if not st.session_state.logged_in:
                 st.success("Kayıt başarılı! Giriş yapabilirsiniz.")
 
 # ══════════════════════════════════════════════════════════
-# 9. ANA PANEL
+# 7. ANA PANEL
 # ══════════════════════════════════════════════════════════
 else:
     cu = db.query(User).filter(User.username==st.session_state.username).first()
@@ -443,15 +417,18 @@ else:
         st.markdown(f"**Puan:** ⭐ {cu.points}")
         st.divider()
         if st.button("🚪 Çıkış Yap"):
-            for k in ["logged_in","username","role"]:
-                st.session_state[k] = "" if k != "logged_in" else False
+            # Çıkış yaparken hem session'ı hem de çerezi siliyoruz
+            controller.remove('arder_user')
+            st.session_state.logged_in = False
+            st.session_state.username = ""
+            st.session_state.role = ""
             st.rerun()
 
     show_header()
     BADGE = {"Acil":"badge-acil","Yüksek":"badge-yuksek","Orta":"badge-orta","Düşük":"badge-dusuk"}
 
     # ==========================================
-    # MODERATÖR PANELİ (En Üst Yetki)
+    # MODERATÖR PANELİ
     # ==========================================
     if st.session_state.role == "Moderatör":
         t1, t2, t3, t4 = st.tabs(["📌 Görev Ata", "📋 Yönetim", "👥 Üyeler", "🏆 Liderlik"])
@@ -476,17 +453,12 @@ else:
                     if not ttitle.strip():
                         st.warning("Görev başlığı boş olamaz.")
                     else:
-                        db.add(Task(
-                            assigned_to=assigned_to, assigned_by=st.session_state.username,
-                            title=ttitle, description=tdesc, priority=tprio, points=tpts,
-                            status="Bekliyor", due_date=str(tdue)
-                        ))
+                        db.add(Task(assigned_to=assigned_to, assigned_by=st.session_state.username, title=ttitle, description=tdesc, priority=tprio, points=tpts, status="Bekliyor", due_date=str(tdue)))
                         db.commit()
                         push_notification("Görev Atandı ✅", f"'{ttitle}' → {assigned_to}")
                         
                         target_user = db.query(User).filter(User.username==assigned_to).first()
                         if target_user and target_user.email:
-                            # YENİ: Arka planda mail atma tetikleniyor
                             trigger_background_email(target_user.email, ttitle, tdesc, tprio, tpts, str(tdue))
                         st.success(f"✅ Görev '{assigned_to}' adlı kişiye anında atandı!")
 
@@ -497,18 +469,15 @@ else:
                 for t in all_t:
                     bc = BADGE.get(t.priority, "badge-orta")
                     status_color = "color:#2DB5A0;" if t.status == "Tamamlandı" else "color:#ef4444;" if t.status == "İptal Edildi" else "color:#eab308;"
-                    
                     with st.expander(f"{t.id} | {t.title} -> {t.assigned_to} ({t.status})"):
                         st.markdown(f"**Açıklama:** {t.description}")
                         st.markdown(f"**Atayan:** {t.assigned_by} | **Puan:** {t.points} | <span style='{status_color}'>**Durum:** {t.status}</span>", unsafe_allow_html=True)
-                        
                         if t.status != "İptal Edildi":
                             st.markdown("<div class='btn-danger'>", unsafe_allow_html=True)
                             if st.button("🗑 Görevi İptal Et", key=f"cancel_{t.id}"):
                                 if t.status == "Tamamlandı":
                                     u = db.query(User).filter(User.username == t.assigned_to).first()
-                                    if u:
-                                        u.points = max(0, u.points - t.points)
+                                    if u: u.points = max(0, u.points - t.points)
                                 t.status = "İptal Edildi"
                                 db.commit()
                                 st.rerun()
@@ -518,18 +487,13 @@ else:
 
         with t3:
             st.markdown("#### Dernek Üyeleri ve Yönetim")
-            st.info("💡 Sildiğiniz kişinin hesabı ve ona atanmış tüm görevler sistemden kalıcı olarak temizlenir.")
-            
             all_users = db.query(User).filter(User.username != cu.username).order_by(User.role).all()
-            
-            if not all_users:
-                st.write("Sistemde sizden başka kayıtlı kimse yok.")
+            if not all_users: st.write("Sistemde sizden başka kayıtlı kimse yok.")
             else:
                 for u in all_users:
                     with st.container():
                         c1, c2 = st.columns([3, 1])
-                        with c1:
-                            st.markdown(f"**{u.username}**<br><span style='font-size:0.8rem; color:#6b7280;'>{u.role} | {u.alan}</span>", unsafe_allow_html=True)
+                        with c1: st.markdown(f"**{u.username}**<br><span style='font-size:0.8rem; color:#6b7280;'>{u.role} | {u.alan}</span>", unsafe_allow_html=True)
                         with c2:
                             st.markdown("<div class='btn-danger'>", unsafe_allow_html=True)
                             if st.button("🗑 Sil", key=f"del_user_{u.id}"):
@@ -540,32 +504,24 @@ else:
                             st.markdown("</div>", unsafe_allow_html=True)
                         st.divider()
 
-        with t4:
-            render_leaderboard(db)
+        with t4: render_leaderboard(db)
 
     # ==========================================
-    # BİRİM BAŞKANI PANELİ (Orta Yetki)
+    # BİRİM BAŞKANI PANELİ
     # ==========================================
     elif st.session_state.role == "Birim Başkanı":
         t1, t2, t3, t4 = st.tabs(["📋 Görevlerim", "📌 Görev Ata", "👁️ Verdiklerim", "🏆 Liderlik"])
 
         with t1:
             my_tasks = db.query(Task).filter(Task.assigned_to==cu.username, Task.status=="Bekliyor").all()
-            if not my_tasks:
-                st.info("Şu an bekleyen bir göreviniz yok.")
+            if not my_tasks: st.info("Şu an bekleyen bir göreviniz yok.")
             else:
                 for t in my_tasks:
                     bc  = BADGE.get(t.priority, "badge-orta")
-                    st.markdown(f"""
-                    <div class="task-card">
-                      <div class="task-title">📌 {t.title}</div>
-                      <div class="task-meta">{t.description or "—"}</div>
-                      <span class="badge {bc}">{t.priority}</span> ⭐ {t.points} puan
-                    </div>
-                    """, unsafe_allow_html=True)
+                    st.markdown(f"""<div class="task-card"><div class="task-title">📌 {t.title}</div><div class="task-meta">{t.description or "—"}</div><span class="badge {bc}">{t.priority}</span> ⭐ {t.points} puan</div>""", unsafe_allow_html=True)
                     if st.button("✔ Tamamla", key=f"done_bb_{t.id}"):
-                        t.status    = "Tamamlandı"
-                        cu.points  += t.points
+                        t.status = "Tamamlandı"
+                        cu.points += t.points
                         db.commit()
                         st.rerun()
 
@@ -573,9 +529,7 @@ else:
             st.markdown("#### Üyelere Yeni Görev Ata")
             only_members = db.query(User).filter(User.role == "Üye").all()
             user_list = [f"{u.username} ({u.alan})" for u in only_members]
-
-            if not user_list:
-                st.info("Sistemde atanacak 'Üye' bulunmuyor.")
+            if not user_list: st.info("Sistemde atanacak 'Üye' bulunmuyor.")
             else:
                 sel         = st.selectbox("Görevi Alacak Üye", user_list)
                 assigned_to = sel.split(" (")[0]
@@ -586,18 +540,12 @@ else:
                 tdue        = st.date_input("Son Tarih 🗓", value=date.today() + timedelta(days=7), min_value=date.today())
                 
                 if st.button("📌 Görevi Ata", use_container_width=True):
-                    if not ttitle.strip():
-                        st.warning("Görev başlığı boş olamaz.")
+                    if not ttitle.strip(): st.warning("Görev başlığı boş olamaz.")
                     else:
-                        db.add(Task(
-                            assigned_to=assigned_to, assigned_by=st.session_state.username,
-                            title=ttitle, description=tdesc, priority=tprio, points=tpts,
-                            status="Bekliyor", due_date=str(tdue)
-                        ))
+                        db.add(Task(assigned_to=assigned_to, assigned_by=st.session_state.username, title=ttitle, description=tdesc, priority=tprio, points=tpts, status="Bekliyor", due_date=str(tdue)))
                         db.commit()
                         target_user = db.query(User).filter(User.username==assigned_to).first()
                         if target_user and target_user.email:
-                            # YENİ: Arka planda mail atma tetikleniyor
                             trigger_background_email(target_user.email, ttitle, tdesc, tprio, tpts, str(tdue))
                         st.success(f"✅ Görev '{assigned_to}' adlı üyeye anında atandı!")
 
@@ -605,16 +553,13 @@ else:
             st.markdown("#### Benim Atadığım Görevler")
             my_given = db.query(Task).filter(Task.assigned_by==cu.username).order_by(Task.id.desc()).all()
             if my_given:
-                for t in my_given:
-                    st.write(f"**{t.title}** -> *{t.assigned_to}* ({t.status})")
-            else:
-                st.info("Henüz görev atamadınız.")
+                for t in my_given: st.write(f"**{t.title}** -> *{t.assigned_to}* ({t.status})")
+            else: st.info("Henüz görev atamadınız.")
 
-        with t4:
-            render_leaderboard(db)
+        with t4: render_leaderboard(db)
 
     # ==========================================
-    # ÜYE PANELİ (Standart Yetki)
+    # ÜYE PANELİ
     # ==========================================
     elif st.session_state.role == "Üye":
         pending_n   = db.query(Task).filter(Task.assigned_to==cu.username, Task.status=="Bekliyor").count()
@@ -630,10 +575,7 @@ else:
 
         with u1:
             my_tasks = db.query(Task).filter(Task.assigned_to==cu.username, Task.status=="Bekliyor").all()
-            if not my_tasks:
-                st.markdown("""<div style="text-align:center;padding:2rem 0;color:#5a7a76;">
-                  <div style="font-size:3rem;">🎉</div><div style="font-weight:700;margin-top:0.5rem;">Bekleyen göreviniz yok!</div>
-                </div>""", unsafe_allow_html=True)
+            if not my_tasks: st.markdown("""<div style="text-align:center;padding:2rem 0;color:#5a7a76;"><div style="font-size:3rem;">🎉</div><div style="font-weight:700;margin-top:0.5rem;">Bekleyen göreviniz yok!</div></div>""", unsafe_allow_html=True)
             else:
                 for t in my_tasks:
                     bc  = BADGE.get(t.priority, "badge-orta")
@@ -652,22 +594,12 @@ else:
                         elif days_left <= 2: due_label = f"🟠 {days_left} gün kaldı"
                         else: due_label = f"🗓 {days_left} gün kaldı ({due})"
 
-                    st.markdown(f"""
-                    <div class="task-card">
-                      <div class="task-title">📌 {t.title}</div>
-                      <div class="task-meta">{t.description or "—"}</div>
-                      <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:4px;">
-                        <span class="badge {bc}">{t.priority}</span>
-                        <span style="font-size:0.72rem;color:#5a7a76;">⭐ {t.points} puan &nbsp;|&nbsp; {due_label}</span>
-                      </div>
-                    </div>
-                    """, unsafe_allow_html=True)
-
+                    st.markdown(f"""<div class="task-card"><div class="task-title">📌 {t.title}</div><div class="task-meta">{t.description or "—"}</div><div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:4px;"><span class="badge {bc}">{t.priority}</span><span style="font-size:0.72rem;color:#5a7a76;">⭐ {t.points} puan &nbsp;|&nbsp; {due_label}</span></div></div>""", unsafe_allow_html=True)
                     col_a, col_b = st.columns([3, 2])
                     with col_a:
                         if st.button("✔ Tamamla", key=f"done_{t.id}"):
-                            t.status    = "Tamamlandı"
-                            cu.points  += t.points
+                            t.status = "Tamamlandı"
+                            cu.points += t.points
                             db.commit()
                             push_notification("Tebrikler! 🎉", f"'{t.title}' tamamlandı. +{t.points} puan kazandın!")
                             st.rerun()
@@ -679,15 +611,9 @@ else:
         with u2:
             done_tasks = db.query(Task).filter(Task.assigned_to==cu.username, Task.status=="Tamamlandı").all()
             if done_tasks:
-                for t in done_tasks:
-                    st.markdown(f"""
-                    <div class="task-card done">
-                      <div class="task-title">✅ {t.title}</div><div class="task-meta" style="color:#2DB5A0;">+{t.points} puan kazanıldı</div>
-                    </div>""", unsafe_allow_html=True)
-            else:
-                st.info("Henüz tamamlanan görev yok.")
+                for t in done_tasks: st.markdown(f"""<div class="task-card done"><div class="task-title">✅ {t.title}</div><div class="task-meta" style="color:#2DB5A0;">+{t.points} puan kazanıldı</div></div>""", unsafe_allow_html=True)
+            else: st.info("Henüz tamamlanan görev yok.")
 
-        with u3:
-            render_leaderboard(db)
+        with u3: render_leaderboard(db)
 
 db.close()
