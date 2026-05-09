@@ -10,9 +10,10 @@ from datetime import datetime, date, timedelta
 import smtplib
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
+import threading # YENİ: Arka plan işlemleri için
 
 # ══════════════════════════════════════════════════════════
-# 1. SAYFA YAPISI
+# 1. SAYFA YAPISI VE ÖN BELLEK (CACHE) AYARLARI
 # ══════════════════════════════════════════════════════════
 st.set_page_config(
     page_title="ARDER",
@@ -24,42 +25,46 @@ st.set_page_config(
 # ══════════════════════════════════════════════════════════
 # 2. PWA MANİFEST + META ETİKETLER
 # ══════════════════════════════════════════════════════════
-_ICON_SVG = """<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
-  <rect width="512" height="512" rx="100" fill="#1A2744"/>
-  <text x="256" y="370" text-anchor="middle" font-size="340" font-weight="900"
-        fill="#2DB5A0" font-family="Arial,sans-serif">A</text>
-  <text x="256" y="460" text-anchor="middle" font-size="68" font-weight="700"
-        fill="#1976D2" font-family="Arial,sans-serif">ARDER</text>
-</svg>"""
-_ICON_B64  = base64.b64encode(_ICON_SVG.encode()).decode()
-_ICON_URI  = f"data:image/svg+xml;base64,{_ICON_B64}"
+@st.cache_data # YENİ: Hızlandırma için SVG ve Manifest'i önbelleğe alıyoruz
+def get_pwa_headers():
+    _ICON_SVG = """<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+      <rect width="512" height="512" rx="100" fill="#1A2744"/>
+      <text x="256" y="370" text-anchor="middle" font-size="340" font-weight="900"
+            fill="#2DB5A0" font-family="Arial,sans-serif">A</text>
+      <text x="256" y="460" text-anchor="middle" font-size="68" font-weight="700"
+            fill="#1976D2" font-family="Arial,sans-serif">ARDER</text>
+    </svg>"""
+    _ICON_B64  = base64.b64encode(_ICON_SVG.encode()).decode()
+    _ICON_URI  = f"data:image/svg+xml;base64,{_ICON_B64}"
 
-_manifest  = {
-    "name":             "ARDER - Akademik Renkler Derneği",
-    "short_name":       "ARDER",
-    "description":      "Akademik Renkler Derneği Görev Yönetim Sistemi",
-    "start_url":        "/",
-    "display":          "standalone",
-    "background_color": "#f0f7f6",
-    "theme_color":      "#1A2744",
-    "orientation":      "portrait-primary",
-    "icons": [
-        {"src": _ICON_URI, "sizes": "192x192", "type": "image/svg+xml", "purpose": "any maskable"},
-        {"src": _ICON_URI, "sizes": "512x512", "type": "image/svg+xml", "purpose": "any maskable"},
-    ]
-}
-_mf_b64 = base64.b64encode(json.dumps(_manifest).encode()).decode()
+    _manifest  = {
+        "name":             "ARDER - Akademik Renkler Derneği",
+        "short_name":       "ARDER",
+        "description":      "Akademik Renkler Derneği Görev Yönetim Sistemi",
+        "start_url":        "/",
+        "display":          "standalone",
+        "background_color": "#f0f7f6",
+        "theme_color":      "#1A2744",
+        "orientation":      "portrait-primary",
+        "icons": [
+            {"src": _ICON_URI, "sizes": "192x192", "type": "image/svg+xml", "purpose": "any maskable"},
+            {"src": _ICON_URI, "sizes": "512x512", "type": "image/svg+xml", "purpose": "any maskable"},
+        ]
+    }
+    _mf_b64 = base64.b64encode(json.dumps(_manifest).encode()).decode()
+    
+    return f"""
+    <link rel="manifest" href="data:application/manifest+json;base64,{_mf_b64}">
+    <meta name="mobile-web-app-capable"          content="yes">
+    <meta name="apple-mobile-web-app-capable"    content="yes">
+    <meta name="apple-mobile-web-app-title"      content="ARDER">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <link rel="apple-touch-icon" href="{_ICON_URI}">
+    <meta name="application-name"  content="ARDER">
+    <meta name="theme-color"       content="#1A2744">
+    """
 
-st.markdown(f"""
-<link rel="manifest" href="data:application/manifest+json;base64,{_mf_b64}">
-<meta name="mobile-web-app-capable"          content="yes">
-<meta name="apple-mobile-web-app-capable"    content="yes">
-<meta name="apple-mobile-web-app-title"      content="ARDER">
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<link rel="apple-touch-icon" href="{_ICON_URI}">
-<meta name="application-name"  content="ARDER">
-<meta name="theme-color"       content="#1A2744">
-""", unsafe_allow_html=True)
+st.markdown(get_pwa_headers(), unsafe_allow_html=True)
 
 # ══════════════════════════════════════════════════════════
 # 3. BİLDİRİM İZNİ
@@ -127,7 +132,7 @@ div.stDownloadButton>button { background:linear-gradient(90deg,#f0f7f6,#d4f1ec) 
 """, unsafe_allow_html=True)
 
 # ══════════════════════════════════════════════════════════
-# 5. VERİTABANI BAĞLANTISI VE MODELLER
+# 5. VERİTABANI BAĞLANTISI VE MODELLER (HIZLANDIRILDI)
 # ══════════════════════════════════════════════════════════
 try:
     DB_URL = st.secrets["DB_URL"]
@@ -135,7 +140,12 @@ except Exception:
     st.error("⚠️ **DB_URL** bilgisini Streamlit Secrets kısmına ekleyin!")
     st.stop()
 
-engine       = create_engine(DB_URL, pool_pre_ping=True)
+# YENİ: Bağlantıyı önbelleğe alıyoruz. Her tıklamada baştan bağlanmayacak.
+@st.cache_resource
+def init_connection():
+    return create_engine(DB_URL, pool_pre_ping=True)
+
+engine = init_connection()
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 Base         = declarative_base()
 
@@ -200,9 +210,10 @@ def check_monthly_reset(db):
         db.commit()
 
 # ══════════════════════════════════════════════════════════
-# 7. E-POSTA VE BİLDİRİM FONKSİYONLARI
+# 7. E-POSTA VE BİLDİRİM FONKSİYONLARI (ARKA PLAN)
 # ══════════════════════════════════════════════════════════
 def send_email_notification(to_email, task_title, task_desc, priority, points, due_date):
+    # YENİ: Bu fonksiyon artık ana sistemi kitlemeyecek, arka planda çalışacak.
     try:
         sender_email = st.secrets.get("EMAIL_USER", "")
         sender_pass  = st.secrets.get("EMAIL_PASS", "")
@@ -241,6 +252,11 @@ Açıklama:
     except Exception as e:
         return False
 
+# YARDIMCI FONKSİYON: E-postayı Thread (arka plan) olarak başlatır
+def trigger_background_email(to_email, task_title, task_desc, priority, points, due_date):
+    thread = threading.Thread(target=send_email_notification, args=(to_email, task_title, task_desc, priority, points, due_date))
+    thread.start()
+
 _defaults = {"logged_in":False,"username":"","role":"","_notif_title":None,"_notif_body":None}
 for k, v in _defaults.items():
     if k not in st.session_state:
@@ -261,9 +277,8 @@ def _flush_notification():
         (function(){{
             var title = {json.dumps(t)};
             var body  = {json.dumps(b)};
-            var icon  = "{_ICON_URI}";
             if (!('Notification' in window)) return;
-            var fn = function() {{ new Notification(title, {{body:body, icon:icon}}); }};
+            var fn = function() {{ new Notification(title, {{body:body}}); }};
             if (Notification.permission === 'granted') {{ fn(); }}
             else if (Notification.permission !== 'denied') {{
                 Notification.requestPermission().then(function(p){{ if (p==='granted') fn(); }});
@@ -290,6 +305,7 @@ def make_ics(title: str, description: str, due_date_str: str) -> bytes:
     )
     return ics.encode("utf-8")
 
+@st.cache_data # YENİ: Logoyu bir kere okuyup hafızaya alır, her sekmede baştan yüklemez
 def logo_html(size=42):
     for ext in ["logo.png","logo.jpg","logo.jpeg"]:
         if os.path.exists(ext):
@@ -384,7 +400,7 @@ if not st.session_state.logged_in:
 
     with tab2:
         ru    = st.text_input("Kullanıcı Adı", key="ru")
-        rmail = st.text_input("E-Posta Adresiniz", key="rmail")
+        rmail = st.text_input("E-Posta Adresiniz (Bildirimler için)", key="rmail")
         rp    = st.text_input("Şifre", type="password", key="rp")
         
         role = st.selectbox("Statünüz", ["Üye", "Birim Başkanı", "Moderatör"])
@@ -470,8 +486,9 @@ else:
                         
                         target_user = db.query(User).filter(User.username==assigned_to).first()
                         if target_user and target_user.email:
-                            send_email_notification(target_user.email, ttitle, tdesc, tprio, tpts, str(tdue))
-                        st.success(f"✅ Görev '{assigned_to}' adlı kişiye atandı!")
+                            # YENİ: Arka planda mail atma tetikleniyor
+                            trigger_background_email(target_user.email, ttitle, tdesc, tprio, tpts, str(tdue))
+                        st.success(f"✅ Görev '{assigned_to}' adlı kişiye anında atandı!")
 
         with t2:
             st.markdown("#### Sistemdeki Tüm Görevler")
@@ -580,8 +597,9 @@ else:
                         db.commit()
                         target_user = db.query(User).filter(User.username==assigned_to).first()
                         if target_user and target_user.email:
-                            send_email_notification(target_user.email, ttitle, tdesc, tprio, tpts, str(tdue))
-                        st.success(f"✅ Görev '{assigned_to}' adlı üyeye başarıyla atandı!")
+                            # YENİ: Arka planda mail atma tetikleniyor
+                            trigger_background_email(target_user.email, ttitle, tdesc, tprio, tpts, str(tdue))
+                        st.success(f"✅ Görev '{assigned_to}' adlı üyeye anında atandı!")
 
         with t3:
             st.markdown("#### Benim Atadığım Görevler")
