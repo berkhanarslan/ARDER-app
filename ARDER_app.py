@@ -172,20 +172,27 @@ class Task(Base):
     status      = Column(String, default="Bekliyor") 
     due_date    = Column(String, default="")
 
+@st.cache_resource
 def init_db():
-    Base.metadata.create_all(bind=engine)
-    with engine.connect() as conn:
-        for stmt in [
-            "ALTER TABLE tasks ADD COLUMN IF NOT EXISTS points   INTEGER DEFAULT 10;",
-            "ALTER TABLE users ADD COLUMN IF NOT EXISTS alan     VARCHAR DEFAULT 'Belirtilmedi';",
-            "ALTER TABLE users ADD COLUMN IF NOT EXISTS email    VARCHAR DEFAULT '';",
-            "ALTER TABLE tasks ADD COLUMN IF NOT EXISTS due_date VARCHAR DEFAULT '';",
-        ]:
-            try:
-                conn.execute(text(stmt))
-                conn.commit()
-            except Exception:
-                pass
+    try:
+        # Tabloları oluştur
+        Base.metadata.create_all(bind=engine)
+        # Sütun güncellemeleri
+        with engine.connect() as conn:
+            for stmt in [
+                "ALTER TABLE tasks ADD COLUMN IF NOT EXISTS points   INTEGER DEFAULT 10;",
+                "ALTER TABLE users ADD COLUMN IF NOT EXISTS alan     VARCHAR DEFAULT 'Belirtilmedi';",
+                "ALTER TABLE users ADD COLUMN IF NOT EXISTS email    VARCHAR DEFAULT '';",
+                "ALTER TABLE tasks ADD COLUMN IF NOT EXISTS due_date VARCHAR DEFAULT '';",
+            ]:
+                try:
+                    conn.execute(text(stmt))
+                    conn.commit()
+                except Exception:
+                    pass
+    except Exception as e:
+        # Çift yükleme (Race Condition) çakışması olursa görmezden gel
+        pass
 
 init_db()
 
