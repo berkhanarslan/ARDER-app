@@ -384,7 +384,7 @@ if not st.session_state.logged_in:
 
     with tab2:
         ru    = st.text_input("Kullanıcı Adı", key="ru")
-        rmail = st.text_input("E-Posta Adresiniz (Bildirimler için)", key="rmail")
+        rmail = st.text_input("E-Posta Adresiniz", key="rmail")
         rp    = st.text_input("Şifre", type="password", key="rp")
         
         role = st.selectbox("Statünüz", ["Üye", "Birim Başkanı", "Moderatör"])
