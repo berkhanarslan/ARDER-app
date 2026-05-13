@@ -21,7 +21,7 @@ st.set_page_config(page_title="ARDER", page_icon="🦚", layout="centered", init
 controller = CookieController()
 
 # ══════════════════════════════════════════════════════════
-# 2. MEGA-CACHE: STATİK ASSETLER VE CSS (MENÜ DÜZELTMELİ)
+# 2. MEGA-CACHE: STATİK ASSETLER VE GÜNCELLENMİŞ CSS
 # ══════════════════════════════════════════════════════════
 @st.cache_data
 def get_static_assets():
@@ -43,11 +43,9 @@ def get_static_assets():
     <link rel="manifest" href="data:application/manifest+json;base64,{base64.b64encode(json.dumps(_manifest).encode()).decode()}">
     <meta name="theme-color" content="#1A2744">
     <style>
-    /* STREAMLIT ARAYÜZÜNÜ VE GEREKSİZ BUTONLARI GİZLEME (Menü Butonu Hariç) */
+    /* SADECE GEREKSİZ BUTONLARI GİZLE, MENÜYÜ BOZMA */
     header[data-testid="stHeader"] {{ background: transparent !important; }}
-    div[data-testid="stToolbar"] {{ display: none !important; }}
-    footer {{ display: none !important; }}
-    .stAppViewFooter {{ display: none !important; }}
+    .viewerBadge_container, .stAppViewFooter, footer {{ display: none !important; }}
 
     /* UYGULAMA TASARIMI */
     .main .block-container {{ max-width:500px; margin:auto; padding:1rem; }}
@@ -189,7 +187,7 @@ def show_header():
     st.markdown(f'<div class="app-header">{LOGO_HTML}<div><div class="brand-name">ARDER</div><div class="brand-sub">Akademik Renkler Derneği</div></div></div>', unsafe_allow_html=True)
 
 # ══════════════════════════════════════════════════════════
-# 5. LİDERLİK TABLOSU (%100 GARANTİLİ HTML İSKELETİ)
+# 5. LİDERLİK TABLOSU
 # ══════════════════════════════════════════════════════════
 @st.cache_data(ttl=60)
 def generate_leaderboard_html(users_dict):
@@ -289,7 +287,7 @@ if saved_cookie and not st.session_state.logged_in:
         st.rerun()
 
 # ══════════════════════════════════════════════════════════
-# 7. GİRİŞ VE KAYIT EKRANI (TELEFON KLAVYE DÜZELTMESİ)
+# 7. GİRİŞ VE KAYIT EKRANI
 # ══════════════════════════════════════════════════════════
 if not st.session_state.logged_in:
     show_header()
@@ -327,7 +325,7 @@ if not st.session_state.logged_in:
                 st.success("Kayıt başarılı! Lütfen giriş yapınız.")
 
 # ══════════════════════════════════════════════════════════
-# 8. ANA PANELLER (ÜYE, BİRİM BAŞKANI, MODERATÖR)
+# 8. ANA PANELLER (YENİ PROFİL SEKMESİ İLE BİRLİKTE)
 # ══════════════════════════════════════════════════════════
 else:
     cu = db.query(User).filter(User.username==st.session_state.username).first()
@@ -335,6 +333,7 @@ else:
         st.session_state.logged_in = False
         st.rerun()
 
+    # Sol Menüyü Bilgisayar İçin Tutar (Mobilde Sekmeye Geçiyoruz)
     with st.sidebar:
         st.markdown(f"### 👤 {cu.username}\n**{cu.role}** | {cu.alan or '—'}\n\n⭐ **{cu.points} Puan**")
         st.divider()
@@ -357,9 +356,19 @@ else:
         </div>
         """, unsafe_allow_html=True)
 
+    # PROFİL YÖNETİMİ FONKSİYONU (Tüm Rollerde Kullanılacak)
+    def render_profile_tab():
+        st.markdown("### 👤 Kişisel Bilgileriniz")
+        st.info(f"**İsim:** {cu.username}\n\n**Görev:** {cu.role} | {cu.alan or '—'}\n\n**Mevcut Puan:** ⭐ {cu.points}")
+        st.markdown("<br>", unsafe_allow_html=True)
+        if st.button("🚪 Sistemden Çıkış Yap", use_container_width=True, type="primary"):
+            controller.remove('arder_user')
+            st.session_state.update({"logged_in": False, "username": "", "role": ""})
+            st.rerun()
+
     # ── MODERATÖR PANELİ ──
     if cu.role == "Moderatör":
-        t1, t2, t3, t4 = st.tabs(["📌 Görev Ata", "📋 Yönetim", "👥 Üyeler", "🏆 Lider"])
+        t1, t2, t3, t4, t5 = st.tabs(["📌 Ata", "📋 Yönetim", "👥 Üyeler", "🏆 Lider", "👤 Profil"])
         with t1:
             users = db.query(User).filter(User.username != cu.username).all()
             if not users: st.info("Sistemde atanacak kimse yok.")
@@ -426,11 +435,12 @@ else:
                 st.rerun()
 
         with t4: render_leaderboard(db)
+        with t5: render_profile_tab()
 
     # ── BİRİM BAŞKANI PANELİ ──
     elif cu.role == "Birim Başkanı":
         render_stats(cu.username)
-        t1, t2, t3, t4 = st.tabs(["📋 Görevlerim", "📌 Ata", "👁️ Verdiklerim", "🏆 Lider"])
+        t1, t2, t3, t4, t5 = st.tabs(["📋 Görevlerim", "📌 Ata", "👁️ Verdiklerim", "🏆 Lider", "👤 Profil"])
         with t1:
             for t in db.query(Task).filter(Task.assigned_to==cu.username, Task.status=="Bekliyor").all():
                 st.markdown(f'<div class="task-card"><div class="task-title">📌 {t.title}</div><div class="task-meta">{t.description}</div><span class="badge {BADGE.get(t.priority)}">{t.priority}</span> ⭐ {t.points}</div>', unsafe_allow_html=True)
@@ -461,11 +471,12 @@ else:
             for t in db.query(Task).filter(Task.assigned_by==cu.username).order_by(Task.id.desc()).limit(20).all():
                 st.write(f"**{t.title}** -> *{t.assigned_to}* ({t.status})")
         with t4: render_leaderboard(db)
+        with t5: render_profile_tab()
 
     # ── ÜYE PANELİ ──
     else:
         render_stats(cu.username)
-        t1, t2, t3 = st.tabs(["📋 Görevlerim", "✅ Tamamlananlar", "🏆 Liderlik"])
+        t1, t2, t3, t4 = st.tabs(["📋 Görevlerim", "✅ Tamamlananlar", "🏆 Liderlik", "👤 Profil"])
         with t1:
             tasks = db.query(Task).filter(Task.assigned_to==cu.username, Task.status=="Bekliyor").all()
             if not tasks: st.markdown('<div style="text-align:center;padding:2rem;"><div style="font-size:3rem;">🎉</div><b>Bekleyen görevin yok!</b></div>', unsafe_allow_html=True)
@@ -488,5 +499,6 @@ else:
             else: st.info("Henüz tamamlanan görev yok.")
 
         with t3: render_leaderboard(db)
+        with t4: render_profile_tab()
 
 db.close()
