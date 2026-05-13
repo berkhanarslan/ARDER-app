@@ -21,7 +21,7 @@ st.set_page_config(page_title="ARDER", page_icon="🦚", layout="centered", init
 controller = CookieController()
 
 # ══════════════════════════════════════════════════════════
-# 2. MEGA-CACHE: STATİK ASSETLER VE GİZLİ CSS
+# 2. MEGA-CACHE: STATİK ASSETLER VE CSS (MENÜ DÜZELTMELİ)
 # ══════════════════════════════════════════════════════════
 @st.cache_data
 def get_static_assets():
@@ -43,12 +43,11 @@ def get_static_assets():
     <link rel="manifest" href="data:application/manifest+json;base64,{base64.b64encode(json.dumps(_manifest).encode()).decode()}">
     <meta name="theme-color" content="#1A2744">
     <style>
-    /* STREAMLIT ARAYÜZÜNÜ VE GEREKSİZ BUTONLARI GİZLEME */
-    header[data-testid="stHeader"] {{ display: none !important; }}
+    /* STREAMLIT ARAYÜZÜNÜ VE GEREKSİZ BUTONLARI GİZLEME (Menü Butonu Hariç) */
+    header[data-testid="stHeader"] {{ background: transparent !important; }}
     div[data-testid="stToolbar"] {{ display: none !important; }}
     footer {{ display: none !important; }}
     .stAppViewFooter {{ display: none !important; }}
-    #MainMenu {{ visibility: hidden; }}
 
     /* UYGULAMA TASARIMI */
     .main .block-container {{ max-width:500px; margin:auto; padding:1rem; }}
@@ -257,7 +256,7 @@ def render_leaderboard(db):
     components.html(html_code, height=650, scrolling=True)
 
 # ══════════════════════════════════════════════════════════
-# 6. OTURUM BAŞLATMA
+# 6. OTURUM BAŞLATMA VE ÇEREZ KONTROLÜ
 # ══════════════════════════════════════════════════════════
 for k in ["logged_in","username","role"]:
     if k not in st.session_state: st.session_state[k] = False if k=="logged_in" else ""
@@ -290,7 +289,7 @@ if saved_cookie and not st.session_state.logged_in:
         st.rerun()
 
 # ══════════════════════════════════════════════════════════
-# 7. GİRİŞ VE KAYIT EKRANI (OTOMATİK BOŞLUK SİLİCİ EKLENDİ)
+# 7. GİRİŞ VE KAYIT EKRANI (TELEFON KLAVYE DÜZELTMESİ)
 # ══════════════════════════════════════════════════════════
 if not st.session_state.logged_in:
     show_header()
@@ -301,7 +300,6 @@ if not st.session_state.logged_in:
     with tab1:
         lu, lp = st.text_input("Kullanıcı Adı"), st.text_input("Şifre", type="password")
         if st.button("Giriş Yap", use_container_width=True):
-            # Telefondaki gizli boşlukları engellemek için strip() kullanıyoruz
             temiz_isim = lu.strip()
             temiz_sifre = lp.strip()
             user = db.query(User).filter(User.username==temiz_isim, User.password==temiz_sifre).first()
@@ -374,7 +372,7 @@ else:
                 t_due = st.date_input("Son Tarih (Deadline) 🗓", value=date.today() + timedelta(days=7), min_value=date.today())
                 
                 if st.button("🚀 Görevi Gönder", use_container_width=True):
-                    if not ttitle.strip():
+                    if not tt.strip():
                         st.warning("Görev başlığı boş olamaz.")
                     else:
                         db.add(Task(assigned_to=assigned_to, assigned_by=cu.username, title=tt, description=td, priority=tp, points=tpts, status="Bekliyor", due_date=str(t_due)))
@@ -420,9 +418,7 @@ else:
             st.markdown("#### ⚠️ GÖREVLERİ SIFIRLAMA")
             st.warning("Aşağıdaki buton sistemdeki **TÜM GÖREVLERİ SİLER ve PUANLARI SIFIRLAR**. Üyelerin kayıtlarına dokunmaz. Bu işlemin geri dönüşü yoktur!")
             if st.button("🚨 TÜM GÖREVLERİ VE PUANLARI SIFIRLA", type="primary", use_container_width=True):
-                # Sadece görevleri sil
                 db.query(Task).delete()
-                # Herkesin puanını sıfırla (üyeleri silme)
                 db.query(User).update({User.points: 0})
                 db.commit()
                 st.success("Tüm görevler silindi ve puanlar sıfırlandı!")
@@ -452,12 +448,15 @@ else:
                 with c2: tpts = st.number_input("Puan", min_value=1, value=10)
                 t_due = st.date_input("Son Tarih", value=date.today() + timedelta(days=7))
                 if st.button("🚀 Görevi Gönder", use_container_width=True):
-                    db.add(Task(assigned_to=assigned_to, assigned_by=cu.username, title=tt, description=td, priority=tp, points=tpts, status="Bekliyor", due_date=str(t_due)))
-                    db.commit()
-                    target = db.query(User).filter(User.username==assigned_to).first()
-                    if target and target.email: trigger_background_email(target.email, tt, td, tp, tpts, str(t_due))
-                    push_notification("Görev Atandı ✅", f"'{tt}' -> {assigned_to}")
-                    st.success("Görev atandı!")
+                    if not tt.strip():
+                        st.warning("Görev başlığı boş olamaz.")
+                    else:
+                        db.add(Task(assigned_to=assigned_to, assigned_by=cu.username, title=tt, description=td, priority=tp, points=tpts, status="Bekliyor", due_date=str(t_due)))
+                        db.commit()
+                        target = db.query(User).filter(User.username==assigned_to).first()
+                        if target and target.email: trigger_background_email(target.email, tt, td, tp, tpts, str(t_due))
+                        push_notification("Görev Atandı ✅", f"'{tt}' -> {assigned_to}")
+                        st.success("Görev atandı!")
         with t3:
             for t in db.query(Task).filter(Task.assigned_by==cu.username).order_by(Task.id.desc()).limit(20).all():
                 st.write(f"**{t.title}** -> *{t.assigned_to}* ({t.status})")
