@@ -15,13 +15,13 @@ import time
 from streamlit_cookies_controller import CookieController
 
 # ══════════════════════════════════════════════════════════
-# 1. SAYFA YAPISI
+# 1. SAYFA YAPISI VE ÇEREZ YÖNETİCİSİ
 # ══════════════════════════════════════════════════════════
 st.set_page_config(page_title="ARDER", page_icon="🦚", layout="centered", initial_sidebar_state="collapsed")
 controller = CookieController()
 
 # ══════════════════════════════════════════════════════════
-# 2. MEGA-CACHE: STATİK ASSETLER
+# 2. MEGA-CACHE: STATİK ASSETLER VE GİZLİ CSS
 # ══════════════════════════════════════════════════════════
 @st.cache_data
 def get_static_assets():
@@ -43,9 +43,16 @@ def get_static_assets():
     <link rel="manifest" href="data:application/manifest+json;base64,{base64.b64encode(json.dumps(_manifest).encode()).decode()}">
     <meta name="theme-color" content="#1A2744">
     <style>
+    /* STREAMLIT ARAYÜZÜNÜ VE GEREKSİZ BUTONLARI GİZLEME */
+    header[data-testid="stHeader"] {{ display: none !important; }}
+    div[data-testid="stToolbar"] {{ display: none !important; }}
+    footer {{ display: none !important; }}
+    .stAppViewFooter {{ display: none !important; }}
+    #MainMenu {{ visibility: hidden; }}
+
+    /* UYGULAMA TASARIMI */
     .main .block-container {{ max-width:500px; margin:auto; padding:1rem; }}
     [data-testid="stAppViewContainer"] {{ background-color:#f0f7f6; }}
-    [data-testid="stHeader"] {{ background:transparent; }}
     [data-testid="stSidebar"] {{ background:#1A2744; }}
     [data-testid="stSidebar"] * {{ color:#f0f7f6 !important; }}
     .app-header {{ background:linear-gradient(135deg,#1A2744 0%,#1976D2 55%,#2DB5A0 100%); border-radius:16px; padding:0.85rem 1rem; margin-bottom:1rem; display:flex; align-items:center; gap:0.8rem; }}
@@ -59,7 +66,6 @@ def get_static_assets():
     .stat-card .value {{ font-size:1.6rem; font-weight:900; color:#1A2744; line-height:1; }}
     .task-card {{ background:#fff; border-radius:14px; box-shadow:0 3px 12px rgba(26,39,68,0.08); padding:1rem; margin-bottom:0.8rem; border-bottom:3px solid #2DB5A0; }}
     .task-card.done {{ border-bottom-color:#a0cfcc; opacity:0.82; }}
-    .task-card.canceled {{ border-bottom-color:#ef4444; opacity:0.6; }}
     .task-title {{ font-weight:700; color:#1A2744; font-size:0.97rem; }}
     .task-meta {{ font-size:0.79rem; color:#5a7a76; margin:0.3rem 0; }}
     .badge {{ display:inline-block; padding:0.18rem 0.6rem; border-radius:20px; font-size:0.7rem; font-weight:700; }}
@@ -188,7 +194,6 @@ def show_header():
 # ══════════════════════════════════════════════════════════
 @st.cache_data(ttl=60)
 def generate_leaderboard_html(users_dict):
-    # ÇÖZÜM: HTML iskeletini bağımsız bir mini sayfa (iframe) formatına çevirdik
     html = """
     <!DOCTYPE html>
     <html>
@@ -249,7 +254,6 @@ def render_leaderboard(db):
     users = db.query(User).order_by(User.points.desc()).all()
     u_dict = [{"username": u.username, "points": u.points, "role": u.role, "alan": u.alan or "—"} for u in users]
     html_code = generate_leaderboard_html(u_dict)
-    # ÇÖZÜM: st.markdown yerine components.html kullanıyoruz, böylece ASLA bozulmaz.
     components.html(html_code, height=650, scrolling=True)
 
 # ══════════════════════════════════════════════════════════
@@ -286,7 +290,7 @@ if saved_cookie and not st.session_state.logged_in:
         st.rerun()
 
 # ══════════════════════════════════════════════════════════
-# 7. GİRİŞ VE KAYIT EKRANI
+# 7. GİRİŞ VE KAYIT EKRANI (OTOMATİK BOŞLUK SİLİCİ EKLENDİ)
 # ══════════════════════════════════════════════════════════
 if not st.session_state.logged_in:
     show_header()
@@ -296,8 +300,11 @@ if not st.session_state.logged_in:
     tab1, tab2 = st.tabs(["🔑 Giriş Yap", "📝 Kayıt Ol"])
     with tab1:
         lu, lp = st.text_input("Kullanıcı Adı"), st.text_input("Şifre", type="password")
-        if st.button("Giriş Yap"):
-            user = db.query(User).filter(User.username==lu, User.password==lp).first()
+        if st.button("Giriş Yap", use_container_width=True):
+            # Telefondaki gizli boşlukları engellemek için strip() kullanıyoruz
+            temiz_isim = lu.strip()
+            temiz_sifre = lp.strip()
+            user = db.query(User).filter(User.username==temiz_isim, User.password==temiz_sifre).first()
             if user:
                 controller.set('arder_user', user.username, max_age=2592000) 
                 st.session_state.update({"logged_in": True, "username": user.username, "role": user.role})
@@ -313,11 +320,11 @@ if not st.session_state.logged_in:
                    "Moderatör": ["Başkan", "Başkan Yardımcısı", "Sayman", "Genel Sekreter", "Uygulama Moderatörü"]}
         alan = st.selectbox("Birim", alanlar[role])
         
-        if st.button("Kayıt Ol"):
-            if len(ru)<3: st.warning("İsim en az 3 karakter olmalı.")
-            elif db.query(User).filter(User.username==ru).first(): st.warning("Bu kullanıcı adı alınmış!")
+        if st.button("Kayıt Ol", use_container_width=True):
+            if len(ru.strip())<3: st.warning("İsim en az 3 karakter olmalı.")
+            elif db.query(User).filter(User.username==ru.strip()).first(): st.warning("Bu kullanıcı adı alınmış!")
             else:
-                db.add(User(username=ru, password=rp, email=rmail, role=role, alan=alan, points=0))
+                db.add(User(username=ru.strip(), password=rp.strip(), email=rmail.strip(), role=role, alan=alan, points=0))
                 db.commit()
                 st.success("Kayıt başarılı! Lütfen giriş yapınız.")
 
@@ -333,7 +340,7 @@ else:
     with st.sidebar:
         st.markdown(f"### 👤 {cu.username}\n**{cu.role}** | {cu.alan or '—'}\n\n⭐ **{cu.points} Puan**")
         st.divider()
-        if st.button("🚪 Çıkış Yap"):
+        if st.button("🚪 Çıkış Yap", use_container_width=True):
             controller.remove('arder_user')
             st.session_state.update({"logged_in": False, "username": "", "role": ""})
             st.rerun()
@@ -366,7 +373,7 @@ else:
                 with c2: tpts = st.number_input("Puan", min_value=1, value=10)
                 t_due = st.date_input("Son Tarih (Deadline) 🗓", value=date.today() + timedelta(days=7), min_value=date.today())
                 
-                if st.button("📌 Görevi Ata", use_container_width=True):
+                if st.button("🚀 Görevi Gönder", use_container_width=True):
                     if not ttitle.strip():
                         st.warning("Görev başlığı boş olamaz.")
                     else:
@@ -410,9 +417,9 @@ else:
                     st.markdown("</div>", unsafe_allow_html=True)
             
             st.divider()
-            st.markdown("#### ⚠️ SİSTEMİ SIFIRLAMA")
-            st.warning("Aşağıdaki buton sistemdeki **TÜM GÖREVLERİ ve PUANLARI** sıfırlar. Üyelerin kayıtları SİLİNMEZ. Bu işlemin geri dönüşü yoktur!")
-            if st.button("🚨 TÜM GÖREVLERİ VE PUANLARI SIFIRLA", type="primary"):
+            st.markdown("#### ⚠️ GÖREVLERİ SIFIRLAMA")
+            st.warning("Aşağıdaki buton sistemdeki **TÜM GÖREVLERİ SİLER ve PUANLARI SIFIRLAR**. Üyelerin kayıtlarına dokunmaz. Bu işlemin geri dönüşü yoktur!")
+            if st.button("🚨 TÜM GÖREVLERİ VE PUANLARI SIFIRLA", type="primary", use_container_width=True):
                 # Sadece görevleri sil
                 db.query(Task).delete()
                 # Herkesin puanını sıfırla (üyeleri silme)
@@ -431,7 +438,7 @@ else:
         with t1:
             for t in db.query(Task).filter(Task.assigned_to==cu.username, Task.status=="Bekliyor").all():
                 st.markdown(f'<div class="task-card"><div class="task-title">📌 {t.title}</div><div class="task-meta">{t.description}</div><span class="badge {BADGE.get(t.priority)}">{t.priority}</span> ⭐ {t.points}</div>', unsafe_allow_html=True)
-                if st.button("✔ Tamamla", key=f"bb_{t.id}"):
+                if st.button("✔ Tamamla", key=f"bb_{t.id}", use_container_width=True):
                     t.status, cu.points = "Tamamlandı", cu.points + t.points
                     db.commit(); push_notification("Tebrikler! 🎉", f"'{t.title}' tamamlandı."); st.rerun()
         with t2:
@@ -444,7 +451,7 @@ else:
                 with c1: tp = st.selectbox("Öncelik", ["Acil","Yüksek","Orta","Düşük"])
                 with c2: tpts = st.number_input("Puan", min_value=1, value=10)
                 t_due = st.date_input("Son Tarih", value=date.today() + timedelta(days=7))
-                if st.button("🚀 Görevi Gönder"):
+                if st.button("🚀 Görevi Gönder", use_container_width=True):
                     db.add(Task(assigned_to=assigned_to, assigned_by=cu.username, title=tt, description=td, priority=tp, points=tpts, status="Bekliyor", due_date=str(t_due)))
                     db.commit()
                     target = db.query(User).filter(User.username==assigned_to).first()
@@ -468,13 +475,13 @@ else:
                 st.markdown(f'<div class="task-card"><div class="task-title">📌 {t.title}</div><div class="task-meta">{t.description}</div><div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:4px;"><span class="badge {BADGE.get(t.priority)}">{t.priority}</span> <span style="font-size:0.72rem;color:#5a7a76;">⭐ {t.points} puan {due_label}</span></div></div>', unsafe_allow_html=True)
                 col_a, col_b = st.columns([3, 2])
                 with col_a:
-                    if st.button("✔ Tamamla", key=f"u_{t.id}"):
+                    if st.button("✔ Tamamla", key=f"u_{t.id}", use_container_width=True):
                         t.status, cu.points = "Tamamlandı", cu.points + t.points
                         db.commit(); push_notification("Tebrikler! 🎉", f"'{t.title}' tamamlandı."); st.rerun()
                 with col_b:
                     if t.due_date:
                         ics = make_ics(t.title, t.description or "", t.due_date)
-                        st.download_button(label="📅 Takvim", data=ics, file_name=f"arder_{t.id}.ics", mime="text/calendar", key=f"ics_{t.id}")
+                        st.download_button(label="📅 Takvim", data=ics, file_name=f"arder_{t.id}.ics", mime="text/calendar", key=f"ics_{t.id}", use_container_width=True)
         with t2:
             done_tasks = db.query(Task).filter(Task.assigned_to==cu.username, Task.status=="Tamamlandı").order_by(Task.id.desc()).limit(20).all()
             if done_tasks:
