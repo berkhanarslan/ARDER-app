@@ -373,7 +373,7 @@ else:
             users = db.query(User).filter(User.username != cu.username).all()
             if not users: st.info("Sistemde atanacak kimse yok.")
             else:
-                assigned_to = st.selectbox("Görevi Alacak Kişi", [f"{u.username} ({u.role})" for u in users]).split(" ")[0]
+                assigned_to = st.selectbox("Görevi Alacak Kişi", [f"{u.username} ({u.alan})" for u in users]).split(" ")[0]
                 tt, td = st.text_input("Görev Başlığı"), st.text_area("Açıklama", height=70)
                 c1, c2 = st.columns(2)
                 with c1: tp = st.selectbox("Öncelik", ["Acil","Yüksek","Orta","Düşük"])
