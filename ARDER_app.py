@@ -35,9 +35,9 @@ def get_static_assets():
     else:
         logo_html = '<span style="font-size:46px;">🦚</span>'
 
-    _ICON_SVG = """<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><rect width="512" height="512" rx="100" fill="#1A2744"/><text x="256" y="370" text-anchor="middle" font-size="340" font-weight="900" fill="#2DB5A0" font-family="Arial,sans-serif">A</text><text x="256" y="460" text-anchor="middle" font-size="68" font-weight="700" fill="#1976D2" font-family="Arial,sans-serif">5432</text></svg>"""
+    _ICON_SVG = """<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><rect width="512" height="512" rx="100" fill="#1A2744"/><text x="256" y="370" text-anchor="middle" font-size="340" font-weight="900" fill="#2DB5A0" font-family="Arial,sans-serif">A</text><text x="256" y="460" text-anchor="middle" font-size="68" font-weight="700" fill="#1976D2" font-family="Arial,sans-serif">ARDER</text></svg>"""
     _ICON_URI  = f"data:image/svg+xml;base64,{base64.b64encode(_ICON_SVG.encode()).decode()}"
-    _manifest  = {"name":"5432","short_name":"5432","display":"standalone","background_color":"#f0f7f6","theme_color":"#1A2744","icons":[{"src":_ICON_URI,"sizes":"512x512","type":"image/svg+xml","purpose":"any maskable"}]}
+    _manifest  = {"name":"AKADEMIK RENKLER DERNEGI","short_name":"ARDER","display":"standalone","background_color":"#f0f7f6","theme_color":"#1A2744","icons":[{"src":_ICON_URI,"sizes":"512x512","type":"image/svg+xml","purpose":"any maskable"}]}
     
     html = f"""
     <link rel="manifest" href="data:application/manifest+json;base64,{base64.b64encode(json.dumps(_manifest).encode()).decode()}">
@@ -181,10 +181,10 @@ def make_ics(title, description, due_date_str):
     dtstamp = datetime.utcnow().strftime("%Y%m%dT%H%M%SZ")
     uid     = f"{dtstamp}-arder-task@akademikreklerdernegi"
     desc    = (description or "").replace("\n", "\\n").replace(",", "\\,")
-    return (f"BEGIN:VCALENDAR\nVERSION:2.0\nPRODID:-//5432//Gorev Yonetimi//TR\nCALSCALE:GREGORIAN\nMETHOD:PUBLISH\nBEGIN:VEVENT\nUID:{uid}\nDTSTAMP:{dtstamp}\nDTSTART;VALUE=DATE:{dtstart}\nDTEND;VALUE=DATE:{dtend}\nSUMMARY:📌 {title}\nDESCRIPTION:{desc}\nSTATUS:CONFIRMED\nBEGIN:VALARM\nTRIGGER:-PT1H\nACTION:DISPLAY\nDESCRIPTION:5432 Hatırlatma: {title}\nEND:VALARM\nEND:VEVENT\nEND:VCALENDAR\n").encode("utf-8")
+    return (f"BEGIN:VCALENDAR\nVERSION:2.0\nPRODID:-//ARDER//Gorev Yonetimi//TR\nCALSCALE:GREGORIAN\nMETHOD:PUBLISH\nBEGIN:VEVENT\nUID:{uid}\nDTSTAMP:{dtstamp}\nDTSTART;VALUE=DATE:{dtstart}\nDTEND;VALUE=DATE:{dtend}\nSUMMARY:📌 {title}\nDESCRIPTION:{desc}\nSTATUS:CONFIRMED\nBEGIN:VALARM\nTRIGGER:-PT1H\nACTION:DISPLAY\nDESCRIPTION:5432 Hatırlatma: {title}\nEND:VALARM\nEND:VEVENT\nEND:VCALENDAR\n").encode("utf-8")
 
 def show_header():
-    st.markdown(f'<div class="app-header">{LOGO_HTML}<div><div class="brand-name">5432</div><div class="brand-sub">Akademik Renkler Derneği</div></div></div>', unsafe_allow_html=True)
+    st.markdown(f'<div class="app-header">{LOGO_HTML}<div><div class="brand-name">ARDER</div><div class="brand-sub">Akademik Renkler Derneği</div></div></div>', unsafe_allow_html=True)
 
 # ══════════════════════════════════════════════════════════
 # 5. LİDERLİK TABLOSU
@@ -304,7 +304,7 @@ if not st.session_state.logged_in:
             if user:
                 controller.set('arder_user', user.username, max_age=2592000) 
                 st.session_state.update({"logged_in": True, "username": user.username, "role": user.role})
-                push_notification("5432'e Hoş Geldin! 👋", f"Merhaba {user.username}, başarıyla giriş yaptın.")
+                push_notification("ARDER'e Hoş Geldin! 👋", f"Merhaba {user.username}, başarıyla giriş yaptın.")
                 st.rerun()
             else: st.error("Kullanıcı adı veya şifre hatalı!")
             
