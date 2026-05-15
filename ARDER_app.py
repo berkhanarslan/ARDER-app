@@ -21,7 +21,7 @@ st.set_page_config(page_title="ARDER", page_icon="🦚", layout="centered", init
 controller = CookieController()
 
 # ══════════════════════════════════════════════════════════
-# 2. MEGA-CACHE: STATİK ASSETLER VE GÜNCELLENMİŞ CSS
+# 2. MEGA-CACHE: STATİK ASSETLER VE MODERN OVAL CSS
 # ══════════════════════════════════════════════════════════
 @st.cache_data
 def get_static_assets():
@@ -30,54 +30,114 @@ def get_static_assets():
         if os.path.exists(ext):
             with open(ext,"rb") as f: logo_b64 = base64.b64encode(f.read()).decode()
             mime = "image/png" if ext.endswith(".png") else "image/jpeg"
-            logo_html = f'<img src="data:{mime};base64,{logo_b64}" style="height:46px;border-radius:8px;object-fit:contain;">'
+            logo_html = f'<img src="data:{mime};base64,{logo_b64}" style="height:40px;object-fit:contain;">'
+            login_logo_html = f'<img src="data:{mime};base64,{logo_b64}" style="height:140px;object-fit:contain;margin-bottom:10px;">'
             break
     else:
-        logo_html = '<span style="font-size:46px;">🦚</span>'
+        logo_html = '<span style="font-size:40px;">🦚</span>'
+        login_logo_html = '<div style="font-size:90px; text-align:center;">🦚</div>'
 
-    _ICON_SVG = """<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><rect width="512" height="512" rx="100" fill="#1A2744"/><text x="256" y="370" text-anchor="middle" font-size="340" font-weight="900" fill="#2DB5A0" font-family="Arial,sans-serif">A</text><text x="256" y="460" text-anchor="middle" font-size="68" font-weight="700" fill="#1976D2" font-family="Arial,sans-serif">ARDER</text></svg>"""
+    _ICON_SVG = """<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><rect width="512" height="512" rx="100" fill="#ffffff"/><text x="256" y="370" text-anchor="middle" font-size="340" font-weight="900" fill="#2DB5A0" font-family="Arial,sans-serif">A</text></svg>"""
     _ICON_URI  = f"data:image/svg+xml;base64,{base64.b64encode(_ICON_SVG.encode()).decode()}"
-    _manifest  = {"name":"AKADEMIK RENKLER DERNEGI","short_name":"ARDER","display":"standalone","background_color":"#f0f7f6","theme_color":"#1A2744","icons":[{"src":_ICON_URI,"sizes":"512x512","type":"image/svg+xml","purpose":"any maskable"}]}
+    _manifest  = {"name":"ARDER","short_name":"ARDER","display":"standalone","background_color":"#f4f7f6","theme_color":"#ffffff","icons":[{"src":_ICON_URI,"sizes":"512x512","type":"image/svg+xml","purpose":"any maskable"}]}
     
     html = f"""
     <link rel="manifest" href="data:application/manifest+json;base64,{base64.b64encode(json.dumps(_manifest).encode()).decode()}">
-    <meta name="theme-color" content="#1A2744">
+    <meta name="theme-color" content="#ffffff">
     <style>
     /* SADECE GEREKSİZ BUTONLARI GİZLE, MENÜYÜ BOZMA */
     header[data-testid="stHeader"] {{ background: transparent !important; }}
     .viewerBadge_container, .stAppViewFooter, footer {{ display: none !important; }}
 
-    /* UYGULAMA TASARIMI */
-    .main .block-container {{ max-width:500px; margin:auto; padding:1rem; }}
-    [data-testid="stAppViewContainer"] {{ background-color:#f0f7f6; }}
-    [data-testid="stSidebar"] {{ background:#1A2744; }}
-    [data-testid="stSidebar"] * {{ color:#f0f7f6 !important; }}
-    .app-header {{ background:linear-gradient(135deg,#1A2744 0%,#1976D2 55%,#2DB5A0 100%); border-radius:16px; padding:0.85rem 1rem; margin-bottom:1rem; display:flex; align-items:center; gap:0.8rem; }}
-    .app-header .brand-name {{ font-size:1.25rem; font-weight:900; color:#fff; line-height:1.1; }}
-    .app-header .brand-sub {{ font-size:0.72rem; color:rgba(255,255,255,0.75); }}
-    .stat-wrap {{ display:flex; gap:10px; margin:0.3rem 0 1rem 0; }}
-    .stat-card {{ flex:1; background:#fff; border-radius:14px; box-shadow:0 4px 16px rgba(26,39,68,0.10); padding:1rem 0.8rem; border-left:4px solid #2DB5A0; text-align:center; }}
-    .stat-card.blue {{ border-left-color:#1976D2; }}
-    .stat-card.dark {{ border-left-color:#1A2744; }}
-    .stat-card .label {{ font-size:0.65rem; color:#5a7a76; font-weight:700; text-transform:uppercase; margin-bottom:5px; }}
-    .stat-card .value {{ font-size:1.6rem; font-weight:900; color:#1A2744; line-height:1; }}
-    .task-card {{ background:#fff; border-radius:14px; box-shadow:0 3px 12px rgba(26,39,68,0.08); padding:1rem; margin-bottom:0.8rem; border-bottom:3px solid #2DB5A0; }}
-    .task-card.done {{ border-bottom-color:#a0cfcc; opacity:0.82; }}
-    .task-title {{ font-weight:700; color:#1A2744; font-size:0.97rem; }}
-    .task-meta {{ font-size:0.79rem; color:#5a7a76; margin:0.3rem 0; }}
-    .badge {{ display:inline-block; padding:0.18rem 0.6rem; border-radius:20px; font-size:0.7rem; font-weight:700; }}
-    .badge-acil {{ background:#fde8e8; color:#c0392b; }} .badge-yuksek {{ background:#fff3cd; color:#856404; }}
-    .badge-orta {{ background:#d4f1ec; color:#1A5C52; }} .badge-dusuk {{ background:#e8f4fd; color:#1565C0; }}
-    div.stButton>button {{ border-radius:8px !important; font-weight:600 !important; width:100%; }}
-    div.stButton>button:first-child {{ background:linear-gradient(90deg,#1A2744,#1976D2) !important; color:#fff !important; border:none !important; }}
-    div.stButton>button:hover {{ background:linear-gradient(90deg,#2DB5A0,#1976D2) !important; box-shadow:0 4px 14px rgba(45,181,160,0.35) !important; transform:translateY(-1px); }}
-    .btn-danger>button {{ background:linear-gradient(90deg,#ef4444,#dc2626) !important; color:#fff !important; }}
-    [data-testid="stTabs"] button[aria-selected="true"] {{ color:#1976D2 !important; border-bottom:2px solid #2DB5A0 !important; }}
+    /* GENEL ARKA PLAN VE KISITLAMALAR */
+    .main .block-container {{ max-width:480px; margin:auto; padding:1rem; padding-top:2rem; }}
+    [data-testid="stAppViewContainer"] {{ background-color:#f5f8f8; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }}
+    
+    /* INPUT KUTUCUKLARI (OVAL VE BEYAZ) */
+    div[data-baseweb="input"] > div {{
+        border-radius: 25px !important;
+        border: 1px solid #e2e8f0 !important;
+        background-color: #ffffff !important;
+        padding: 4px 12px !important;
+        box-shadow: inset 0 2px 4px rgba(0,0,0,0.02) !important;
+    }}
+    div[data-baseweb="select"] > div {{ border-radius: 25px !important; border: 1px solid #e2e8f0 !important; }}
+    
+    /* BUTONLAR (OVAL VE SOFT) */
+    div.stButton>button {{
+        border-radius: 30px !important;
+        font-weight: 700 !important;
+        padding: 0.6rem 1rem !important;
+        border: none !important;
+        transition: all 0.3s ease;
+    }}
+    /* Ana Buton Rengi (Logodaki Turkuaz/Yeşil) */
+    div.stButton>button:first-child {{
+        background: #2DB5A0 !important;
+        color: #fff !important;
+        box-shadow: 0 4px 14px rgba(45, 181, 160, 0.3) !important;
+    }}
+    div.stButton>button:hover {{ transform: translateY(-2px); box-shadow: 0 6px 20px rgba(45, 181, 160, 0.4) !important; }}
+    .btn-danger>button {{ background: #ef4444 !important; color: #fff !important; box-shadow: 0 4px 14px rgba(239, 68, 68, 0.3) !important; }}
+
+    /* MODERN BEYAZ HEADER (Uygulama İçi) */
+    .app-header {{
+        background: #ffffff;
+        border-radius: 24px;
+        padding: 1rem 1.2rem;
+        margin-bottom: 1.5rem;
+        display: flex;
+        align-items: center;
+        gap: 0.8rem;
+        box-shadow: 0 4px 20px rgba(0,0,0,0.04);
+    }}
+    .app-header .brand-name {{ font-size: 1.15rem; font-weight: 900; color: #1A2744; line-height: 1.1; }}
+    .app-header .brand-sub {{ font-size: 0.7rem; color: #2DB5A0; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; }}
+
+    /* GİRİŞ EKRANI ÖZEL BAŞLIĞI */
+    .login-header {{ text-align: center; margin-bottom: 2rem; margin-top: 1rem; }}
+    .login-header h1 {{ color: #1A2744; font-size: 1.8rem; font-weight: 900; margin: 0; padding: 0; }}
+    .login-header p {{ color: #2DB5A0; font-size: 0.85rem; font-weight: 700; margin: 0; padding: 0; letter-spacing: 1px; }}
+
+    /* İSTATİSTİK KARTLARI (OVAL) */
+    .stat-wrap {{ display:flex; gap:12px; margin:0.5rem 0 1.5rem 0; }}
+    .stat-card {{
+        flex:1; background:#fff; border-radius:24px;
+        box-shadow:0 8px 24px rgba(0,0,0,0.04);
+        padding:1.2rem 0.8rem; text-align:center;
+        display: flex; flex-direction: column; justify-content: center;
+    }}
+    .stat-card .label {{ font-size:0.7rem; color:#64748b; font-weight:600; margin-bottom:8px; }}
+    .stat-card .value {{ font-size:1.8rem; font-weight:900; color:#1A2744; line-height:1; }}
+    .stat-card .value.green {{ color: #2DB5A0; }}
+
+    /* GÖREV KARTLARI (BEYAZ VE SOFT GÖLGE) */
+    .task-card {{
+        background: #fff; border-radius: 20px;
+        box-shadow: 0 4px 16px rgba(0,0,0,0.03);
+        padding: 1.2rem; margin-bottom: 1rem;
+        border-left: 6px solid #2DB5A0;
+        position: relative;
+    }}
+    .task-card.done {{ border-left-color: #cbd5e1; opacity: 0.7; }}
+    .task-title {{ font-weight: 800; color: #1A2744; font-size: 1rem; margin-bottom: 0.3rem; }}
+    .task-meta {{ font-size: 0.8rem; color: #64748b; margin-bottom: 0.8rem; line-height: 1.4; }}
+    
+    /* ROZETLER (BADGES) */
+    .badge {{ display:inline-block; padding:0.25rem 0.7rem; border-radius:20px; font-size:0.7rem; font-weight:700; }}
+    .badge-acil {{ background:#fee2e2; color:#b91c1c; }}
+    .badge-yuksek {{ background:#fef3c7; color:#b45309; }}
+    .badge-orta {{ background:#ccfbf1; color:#0f766e; }}
+    .badge-dusuk {{ background:#e0f2fe; color:#0369a1; }}
+    
+    /* SEKMELER (TABS) MODERNLEŞTİRME */
+    [data-testid="stTabs"] button {{ padding-bottom: 10px !important; }}
+    [data-testid="stTabs"] button[aria-selected="true"] {{ color:#2DB5A0 !important; border-bottom: 3px solid #2DB5A0 !important; }}
     </style>
     """
-    return html, logo_html
+    return html, logo_html, login_logo_html
 
-STATIC_HTML, LOGO_HTML = get_static_assets()
+STATIC_HTML, LOGO_HTML, LOGIN_LOGO_HTML = get_static_assets()
 st.markdown(STATIC_HTML, unsafe_allow_html=True)
 components.html("<script>if ('Notification' in window && Notification.permission === 'default') { Notification.requestPermission(); }</script>", height=0)
 
@@ -139,7 +199,7 @@ def init_db():
 init_db()
 
 # ══════════════════════════════════════════════════════════
-# 4. YARDIMCI FONKSİYONLAR (Mail, ICS, Bildirim)
+# 4. YARDIMCI FONKSİYONLAR
 # ══════════════════════════════════════════════════════════
 def send_email_notification(to_email, task_title, task_desc, priority, points, due_date):
     try:
@@ -181,10 +241,10 @@ def make_ics(title, description, due_date_str):
     dtstamp = datetime.utcnow().strftime("%Y%m%dT%H%M%SZ")
     uid     = f"{dtstamp}-arder-task@akademikreklerdernegi"
     desc    = (description or "").replace("\n", "\\n").replace(",", "\\,")
-    return (f"BEGIN:VCALENDAR\nVERSION:2.0\nPRODID:-//ARDER//Gorev Yonetimi//TR\nCALSCALE:GREGORIAN\nMETHOD:PUBLISH\nBEGIN:VEVENT\nUID:{uid}\nDTSTAMP:{dtstamp}\nDTSTART;VALUE=DATE:{dtstart}\nDTEND;VALUE=DATE:{dtend}\nSUMMARY:📌 {title}\nDESCRIPTION:{desc}\nSTATUS:CONFIRMED\nBEGIN:VALARM\nTRIGGER:-PT1H\nACTION:DISPLAY\nDESCRIPTION:5432 Hatırlatma: {title}\nEND:VALARM\nEND:VEVENT\nEND:VCALENDAR\n").encode("utf-8")
+    return (f"BEGIN:VCALENDAR\nVERSION:2.0\nPRODID:-//ARDER//Gorev Yonetimi//TR\nCALSCALE:GREGORIAN\nMETHOD:PUBLISH\nBEGIN:VEVENT\nUID:{uid}\nDTSTAMP:{dtstamp}\nDTSTART;VALUE=DATE:{dtstart}\nDTEND;VALUE=DATE:{dtend}\nSUMMARY:📌 {title}\nDESCRIPTION:{desc}\nSTATUS:CONFIRMED\nBEGIN:VALARM\nTRIGGER:-PT1H\nACTION:DISPLAY\nDESCRIPTION:ARDER Hatırlatma: {title}\nEND:VALARM\nEND:VEVENT\nEND:VCALENDAR\n").encode("utf-8")
 
 def show_header():
-    st.markdown(f'<div class="app-header">{LOGO_HTML}<div><div class="brand-name">ARDER</div><div class="brand-sub">Akademik Renkler Derneği</div></div></div>', unsafe_allow_html=True)
+    st.markdown(f'<div class="app-header">{LOGO_HTML}<div><div class="brand-name">ARDER</div><div class="brand-sub">Akademik Renkler</div></div></div>', unsafe_allow_html=True)
 
 # ══════════════════════════════════════════════════════════
 # 5. LİDERLİK TABLOSU
@@ -200,28 +260,28 @@ def generate_leaderboard_html(users_dict):
     body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: transparent; margin: 0; padding: 0; }
     .pod{display:flex;justify-content:center;align-items:flex-end;gap:10px;height:210px;margin-bottom:18px;}
     .pc{display:flex;flex-direction:column;align-items:center;width:30%;max-width:110px;}
-    .av{width:48px;height:48px;border-radius:8px;margin-bottom:6px;background:linear-gradient(135deg,#1976D2,#2DB5A0);color:#fff;display:flex;align-items:center;justify-content:center;font-size:20px;font-weight:900;}
-    .pn{font-size:11px;font-weight:700;color:#1A2744;text-align:center;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;width:100%;}
-    .pp{font-size:10px;color:#9ca3af;margin-bottom:5px;}
-    .blk{width:100%;display:flex;justify-content:center;padding-top:10px;font-weight:700;font-size:15px;border-radius:6px 6px 0 0;color:#fff;}
+    .av{width:48px;height:48px;border-radius:16px;margin-bottom:6px;background:linear-gradient(135deg,#1976D2,#2DB5A0);color:#fff;display:flex;align-items:center;justify-content:center;font-size:20px;font-weight:900;}
+    .pn{font-size:12px;font-weight:800;color:#1A2744;text-align:center;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;width:100%;}
+    .pp{font-size:10px;color:#64748b;margin-bottom:5px;font-weight:600;}
+    .blk{width:100%;display:flex;justify-content:center;padding-top:10px;font-weight:700;font-size:15px;border-radius:16px 16px 0 0;color:#fff;box-shadow:0 -4px 12px rgba(0,0,0,0.05);}
     .g{height:140px;background:linear-gradient(135deg,#f59e0b,#d97706);}
-    .s{height:105px;background:#cbd5e1;color:#475569;}
+    .s{height:105px;background:#e2e8f0;color:#475569;}
     .b{height:80px;background:#d97706;}
-    .li{display:flex;align-items:center;background:#fff;padding:9px 12px;border-radius:10px;margin-bottom:8px;box-shadow:0 2px 8px rgba(0,0,0,0.05);}
-    .rb{width:30px;height:30px;display:flex;justify-content:center;align-items:center;border-radius:6px;font-weight:700;font-size:12px;color:#fff;margin-right:10px;flex-shrink:0;}
+    .li{display:flex;align-items:center;background:#fff;padding:12px 16px;border-radius:20px;margin-bottom:10px;box-shadow:0 4px 16px rgba(0,0,0,0.03);}
+    .rb{width:32px;height:32px;display:flex;justify-content:center;align-items:center;border-radius:10px;font-weight:800;font-size:13px;color:#fff;margin-right:12px;flex-shrink:0;}
     .r1{background:#f59e0b;}
     .r2{background:#cbd5e1;color:#475569;}
     .r3{background:#d97706;}
-    .rx{background:#f1f5f9;color:#64748b;}
-    .ln{font-weight:700;color:#1A2744;font-size:13px;}
-    .lr{font-size:10px;color:#6b7280;}
-    .lp{margin-left:auto;font-weight:800;color:#2DB5A0;font-size:16px;}
+    .rx{background:#f8fafc;color:#64748b;}
+    .ln{font-weight:800;color:#1A2744;font-size:14px;}
+    .lr{font-size:11px;color:#94a3b8;font-weight:500;}
+    .lp{margin-left:auto;font-weight:900;color:#2DB5A0;font-size:18px;}
     </style>
     </head>
     <body>
-    <div style="padding:8px;">
-    <div style="color:#1A2744;font-size:19px;font-weight:800;">🏆 Liderlik Tablosu</div>
-    <div style="color:#6b7280;font-size:12px;margin-bottom:18px;">Aylık olarak sıfırlanır!</div>
+    <div style="padding:4px;">
+    <div style="color:#1A2744;font-size:20px;font-weight:900;margin-bottom:4px;">🏆 Liderlik Tablosu</div>
+    <div style="color:#94a3b8;font-size:12px;margin-bottom:24px;font-weight:600;">Her ayın başında sıfırlanır</div>
     """
     
     if users_dict:
@@ -230,19 +290,19 @@ def generate_leaderboard_html(users_dict):
         u3 = users_dict[2] if len(users_dict) > 2 else None
         
         html += "<div class='pod'>"
-        if u2: html += f"<div class='pc'><div class='av'>{u2['username'][0].upper()}</div><div class='pn'>{u2['username']}</div><div class='pp'>{u2['points']} pts</div><div class='blk s'>🥈</div></div>"
+        if u2: html += f"<div class='pc'><div class='av'>{u2['username'][0].upper()}</div><div class='pn'>{u2['username']}</div><div class='pp'>{u2['points']} Puan</div><div class='blk s'>🥈</div></div>"
         else: html += "<div class='pc'></div>"
         
-        html += f"<div class='pc'><div class='av'>{u1['username'][0].upper()}</div><div class='pn'>{u1['username']}</div><div class='pp'>{u1['points']} pts</div><div class='blk g'>🥇</div></div>"
+        html += f"<div class='pc'><div class='av'>{u1['username'][0].upper()}</div><div class='pn'>{u1['username']}</div><div class='pp'>{u1['points']} Puan</div><div class='blk g'>🥇</div></div>"
         
-        if u3: html += f"<div class='pc'><div class='av'>{u3['username'][0].upper()}</div><div class='pn'>{u3['username']}</div><div class='pp'>{u3['points']} pts</div><div class='blk b'>🥉</div></div>"
+        if u3: html += f"<div class='pc'><div class='av'>{u3['username'][0].upper()}</div><div class='pn'>{u3['username']}</div><div class='pp'>{u3['points']} Puan</div><div class='blk b'>🥉</div></div>"
         else: html += "<div class='pc'></div>"
         html += "</div>"
         
         for i, u in enumerate(users_dict):
             r = i + 1
             rc = f"r{r}" if r <= 3 else "rx"
-            html += f"<div class='li'><div class='rb {rc}'>{r}</div><div class='av' style='width:36px;height:36px;font-size:15px;margin-bottom:0;margin-right:10px;'>{u['username'][0].upper()}</div><div style='overflow:hidden;'><div class='ln'>{u['username']}</div><div class='lr'>{u['role']} | {u['alan']}</div></div><div class='lp'>{u['points']}<span style='font-size:9px;color:#9ca3af;'> pts</span></div></div>"
+            html += f"<div class='li'><div class='rb {rc}'>{r}</div><div class='av' style='width:40px;height:40px;font-size:16px;margin-bottom:0;margin-right:12px;border-radius:12px;'>{u['username'][0].upper()}</div><div style='overflow:hidden;'><div class='ln'>{u['username']}</div><div class='lr'>{u['role']} | {u['alan']}</div></div><div class='lp'>{u['points']}<span style='font-size:10px;color:#cbd5e1;'> pts</span></div></div>"
     
     html += "</div></body></html>"
     return html
@@ -254,7 +314,7 @@ def render_leaderboard(db):
     components.html(html_code, height=650, scrolling=True)
 
 # ══════════════════════════════════════════════════════════
-# 6. OTURUM BAŞLATMA VE ÇEREZ KONTROLÜ
+# 6. OTURUM BAŞLATMA
 # ══════════════════════════════════════════════════════════
 for k in ["logged_in","username","role"]:
     if k not in st.session_state: st.session_state[k] = False if k=="logged_in" else ""
@@ -287,60 +347,53 @@ if saved_cookie and not st.session_state.logged_in:
         st.rerun()
 
 # ══════════════════════════════════════════════════════════
-# 7. GİRİŞ VE KAYIT EKRANI
+# 7. GİRİŞ VE KAYIT EKRANI (YENİ MODERN TASARIM)
 # ══════════════════════════════════════════════════════════
 if not st.session_state.logged_in:
-    show_header()
-    st.markdown("#### Görev Yönetim Sistemine Hoş Geldiniz!")
-    st.divider()
-
-    tab1, tab2 = st.tabs(["🔑 Giriş Yap", "📝 Kayıt Ol"])
+    
+    # Giriş ekranı özel logo ve başlık
+    st.markdown(f'<div class="login-header">{LOGIN_LOGO_HTML}<h1>AKADEMİK</h1><p>RENKLER DERNEĞİ</p></div>', unsafe_allow_html=True)
+    
+    tab1, tab2 = st.tabs(["Giriş Yap", "Kayıt Ol"])
     with tab1:
+        st.markdown("<br>", unsafe_allow_html=True)
         lu, lp = st.text_input("Kullanıcı Adı"), st.text_input("Şifre", type="password")
+        st.markdown("<br>", unsafe_allow_html=True)
         if st.button("Giriş Yap", use_container_width=True):
-            temiz_isim = lu.strip()
-            temiz_sifre = lp.strip()
-            user = db.query(User).filter(User.username==temiz_isim, User.password==temiz_sifre).first()
+            user = db.query(User).filter(User.username==lu.strip(), User.password==lp.strip()).first()
             if user:
                 controller.set('arder_user', user.username, max_age=2592000) 
                 st.session_state.update({"logged_in": True, "username": user.username, "role": user.role})
-                push_notification("ARDER'e Hoş Geldin! 👋", f"Merhaba {user.username}, başarıyla giriş yaptın.")
+                push_notification("Hoş Geldin!", f"Merhaba {user.username}.")
                 st.rerun()
-            else: st.error("Kullanıcı adı veya şifre hatalı!")
+            else: st.error("Bilgiler hatalı!")
             
     with tab2:
-        ru, rmail, rp = st.text_input("Kullanıcı Adı (Yeni)"), st.text_input("E-Posta"), st.text_input("Şifre (Yeni)", type="password")
-        role = st.selectbox("Statünüz", ["Üye", "Birim Başkanı", "Moderatör"])
-        alanlar = {"Üye": ["Üye", "Sosyal Medya ve Tasarım", "İletişim", "İnsan Kaynakları", "Projeler ve Koordinatörlükler", "Etkinlik"],
-                   "Birim Başkanı": ["Sosyal Medya ve Tasarım Başkanı", "İletişim Başkanı", "İnsan Kaynakları Başkanı", "Projeler ve Koordinatörlükler Başkanı", "Etkinlik Başkanı"],
-                   "Moderatör": ["Başkan", "Başkan Yardımcısı", "Sayman", "Genel Sekreter", "Uygulama Moderatörü"]}
+        st.markdown("<br>", unsafe_allow_html=True)
+        ru, rmail, rp = st.text_input("Ad Soyad"), st.text_input("E-Posta"), st.text_input("Şifre", type="password")
+        role = st.selectbox("Görev Dağılımı", ["Üye", "Birim Başkanı", "Moderatör"])
+        alanlar = {"Üye": ["Üye", "Sosyal Medya", "İletişim", "İnsan Kaynakları", "Projeler", "Etkinlik"],
+                   "Birim Başkanı": ["Sosyal Medya Başkanı", "İletişim Başkanı", "İK Başkanı", "Projeler Başkanı", "Etkinlik Başkanı"],
+                   "Moderatör": ["Başkan", "Başkan Yardımcısı", "Sayman", "Genel Sekreter", "Uygulama Yöneticisi"]}
         alan = st.selectbox("Birim", alanlar[role])
         
+        st.markdown("<br>", unsafe_allow_html=True)
         if st.button("Kayıt Ol", use_container_width=True):
-            if len(ru.strip())<3: st.warning("İsim en az 3 karakter olmalı.")
-            elif db.query(User).filter(User.username==ru.strip()).first(): st.warning("Bu kullanıcı adı alınmış!")
+            if len(ru.strip())<3: st.warning("İsim çok kısa.")
+            elif db.query(User).filter(User.username==ru.strip()).first(): st.warning("Bu isim kayıtlı.")
             else:
                 db.add(User(username=ru.strip(), password=rp.strip(), email=rmail.strip(), role=role, alan=alan, points=0))
                 db.commit()
-                st.success("Kayıt başarılı! Lütfen giriş yapınız.")
+                st.success("Başarıyla kayıt olundu! Giriş sekmesinden devam edebilirsiniz.")
 
 # ══════════════════════════════════════════════════════════
-# 8. ANA PANELLER (İSİM BOŞLUK HATASI ÇÖZÜLDÜ)
+# 8. ANA PANELLER (BEYAZ TEMA VE YUMUŞAK KARTLAR)
 # ══════════════════════════════════════════════════════════
 else:
     cu = db.query(User).filter(User.username==st.session_state.username).first()
     if not cu:
         st.session_state.logged_in = False
         st.rerun()
-
-    # Sol Menüyü Bilgisayar İçin Tutar (Mobilde Sekmeye Geçiyoruz)
-    with st.sidebar:
-        st.markdown(f"### 👤 {cu.username}\n**{cu.role}** | {cu.alan or '—'}\n\n⭐ **{cu.points} Puan**")
-        st.divider()
-        if st.button("🚪 Çıkış Yap", use_container_width=True):
-            controller.remove('arder_user')
-            st.session_state.update({"logged_in": False, "username": "", "role": ""})
-            st.rerun()
 
     show_header()
     BADGE = {"Acil":"badge-acil","Yüksek":"badge-yuksek","Orta":"badge-orta","Düşük":"badge-dusuk"}
@@ -350,156 +403,135 @@ else:
         done = db.query(Task).filter(Task.assigned_to==u_name, Task.status=="Tamamlandı").count()
         st.markdown(f"""
         <div class="stat-wrap">
-          <div class="stat-card"><div class="label">⭐ Puan</div><div class="value">{cu.points}</div></div>
-          <div class="stat-card blue"><div class="label">⏳ Bekleyen</div><div class="value">{pending}</div></div>
-          <div class="stat-card dark"><div class="label">✅ Tamam</div><div class="value">{done}</div></div>
+          <div class="stat-card"><div class="label">Puanım</div><div class="value green">{cu.points}</div></div>
+          <div class="stat-card"><div class="label">Bekleyen</div><div class="value">{pending}</div></div>
+          <div class="stat-card"><div class="label">Tamamlanan</div><div class="value">{done}</div></div>
         </div>
         """, unsafe_allow_html=True)
 
-    # PROFİL YÖNETİMİ FONKSİYONU
     def render_profile_tab():
-        st.markdown("### 👤 Kişisel Bilgileriniz")
-        st.info(f"**İsim:** {cu.username}\n\n**Görev:** {cu.role} | {cu.alan or '—'}\n\n**Mevcut Puan:** ⭐ {cu.points}")
         st.markdown("<br>", unsafe_allow_html=True)
-        if st.button("🚪 Sistemden Çıkış Yap", use_container_width=True, type="primary"):
+        st.markdown(f'<div style="text-align:center; padding: 2rem; background:#fff; border-radius: 24px; box-shadow: 0 4px 20px rgba(0,0,0,0.03);"><div style="font-size: 50px; margin-bottom: 10px;">👤</div><h2 style="color:#1A2744; margin:0; font-weight:900;">{cu.username}</h2><p style="color:#64748b; font-weight:600; margin-top:5px;">{cu.role} • {cu.alan or ""}</p><div style="font-size: 24px; font-weight: 800; color: #2DB5A0; margin: 20px 0;">⭐ {cu.points} Puan</div></div>', unsafe_allow_html=True)
+        st.markdown("<br>", unsafe_allow_html=True)
+        st.markdown("<div class='btn-danger'>", unsafe_allow_html=True)
+        if st.button("Sistemden Çıkış Yap", use_container_width=True):
             controller.remove('arder_user')
             st.session_state.update({"logged_in": False, "username": "", "role": ""})
             st.rerun()
+        st.markdown("</div>", unsafe_allow_html=True)
 
-    # ── MODERATÖR PANELİ ──
+    # ── MODERATÖR ──
     if cu.role == "Moderatör":
-        t1, t2, t3, t4, t5 = st.tabs(["📌 Ata", "📋 Yönetim", "👥 Üyeler", "🏆 Lider", "👤 Profil"])
+        t1, t2, t3, t4, t5 = st.tabs(["Ata", "Yönet", "Üyeler", "Liderlik", "Profil"])
         with t1:
             users = db.query(User).filter(User.username != cu.username).all()
-            if not users: st.info("Sistemde atanacak kimse yok.")
+            if not users: st.info("Sistemde üye yok.")
             else:
-                # İSİM BÖLME HATASI BURADA DÜZELTİLDİ: rsplit(" (", 1)[0]
-                assigned_to = st.selectbox("Görevi Alacak Kişi", [f"{u.username} ({u.role})" for u in users]).rsplit(" (", 1)[0]
-                tt, td = st.text_input("Görev Başlığı"), st.text_area("Açıklama", height=70)
+                assigned_to = st.selectbox("Kime:", [f"{u.username} ({u.role})" for u in users]).rsplit(" (", 1)[0]
+                tt, td = st.text_input("Başlık"), st.text_area("Detaylar", height=80)
                 c1, c2 = st.columns(2)
                 with c1: tp = st.selectbox("Öncelik", ["Acil","Yüksek","Orta","Düşük"])
                 with c2: tpts = st.number_input("Puan", min_value=1, value=10)
-                t_due = st.date_input("Son Tarih (Deadline) 🗓", value=date.today() + timedelta(days=7), min_value=date.today())
-                
-                if st.button("🚀 Görevi Gönder", use_container_width=True):
-                    if not tt.strip():
-                        st.warning("Görev başlığı boş olamaz.")
+                t_due = st.date_input("Son Tarih", value=date.today() + timedelta(days=7), min_value=date.today())
+                st.markdown("<br>", unsafe_allow_html=True)
+                if st.button("Görevi Gönder", use_container_width=True):
+                    if not tt.strip(): st.warning("Başlık boş olamaz.")
                     else:
                         db.add(Task(assigned_to=assigned_to, assigned_by=cu.username, title=tt, description=td, priority=tp, points=tpts, status="Bekliyor", due_date=str(t_due)))
                         db.commit()
                         target = db.query(User).filter(User.username==assigned_to).first()
                         if target and target.email: trigger_background_email(target.email, tt, td, tp, tpts, str(t_due))
-                        push_notification("Görev Atandı ✅", f"'{tt}' -> {assigned_to}")
-                        st.success("Görev başarıyla atandı!")
-                        
+                        st.success("Gönderildi!")
         with t2:
             all_t = db.query(Task).order_by(Task.id.desc()).limit(50).all()
             for t in all_t:
                 status_color = "color:#2DB5A0;" if t.status == "Tamamlandı" else "color:#ef4444;" if t.status == "İptal Edildi" else "color:#eab308;"
-                with st.expander(f"{t.title} -> {t.assigned_to} ({t.status})"):
-                    st.markdown(f"**Puan:** {t.points} | **Ekleyen:** {t.assigned_by} | <span style='{status_color}'>**Durum:** {t.status}</span>\n\n{t.description}", unsafe_allow_html=True)
+                with st.expander(f"{t.title} -> {t.assigned_to}"):
+                    st.markdown(f"**Puan:** {t.points} | **Veren:** {t.assigned_by} | <span style='{status_color}'>**Durum:** {t.status}</span><br><br>{t.description}", unsafe_allow_html=True)
                     if t.status != "İptal Edildi":
                         st.markdown("<div class='btn-danger'>", unsafe_allow_html=True)
-                        if st.button("🗑 İptal Et", key=f"c_{t.id}"):
+                        if st.button("İptal Et", key=f"c_{t.id}"):
                             if t.status == "Tamamlandı":
                                 target_u = db.query(User).filter(User.username == t.assigned_to).first()
                                 if target_u: target_u.points = max(0, target_u.points - t.points)
                             t.status = "İptal Edildi"
-                            db.commit()
-                            st.rerun()
+                            db.commit(); st.rerun()
                         st.markdown("</div>", unsafe_allow_html=True)
-                        
         with t3:
-            st.info("💡 Buradan sildiğiniz kişilerin hesapları ve ona atanmış tüm görevler kalıcı olarak temizlenir.")
-            users = db.query(User).filter(User.username != cu.username).all()
-            for u in users:
+            for u in db.query(User).filter(User.username != cu.username).all():
                 c1, c2 = st.columns([3, 1])
-                c1.markdown(f"**{u.username}**<br><span style='font-size:0.8rem; color:#6b7280;'>{u.role} | {u.alan}</span>", unsafe_allow_html=True)
+                c1.markdown(f"<div style='background:#fff; padding:10px; border-radius:12px; margin-bottom:8px; font-weight:700;'>{u.username}<br><span style='font-size:11px; font-weight:500; color:#64748b;'>{u.role}</span></div>", unsafe_allow_html=True)
                 with c2:
                     st.markdown("<div class='btn-danger'>", unsafe_allow_html=True)
-                    if st.button("🗑 Sil", key=f"d_{u.id}"):
+                    if st.button("Sil", key=f"d_{u.id}"):
                         db.query(Task).filter(Task.assigned_to == u.username).delete()
-                        db.delete(u)
-                        db.commit()
-                        st.rerun()
+                        db.delete(u); db.commit(); st.rerun()
                     st.markdown("</div>", unsafe_allow_html=True)
-            
             st.divider()
-            st.markdown("#### ⚠️ GÖREVLERİ SIFIRLAMA")
-            st.warning("Aşağıdaki buton sistemdeki **TÜM GÖREVLERİ SİLER ve PUANLARI SIFIRLAR**. Üyelerin kayıtlarına dokunmaz. Bu işlemin geri dönüşü yoktur!")
-            if st.button("🚨 TÜM GÖREVLERİ VE PUANLARI SIFIRLA", type="primary", use_container_width=True):
-                db.query(Task).delete()
-                db.query(User).update({User.points: 0})
-                db.commit()
-                st.success("Tüm görevler silindi ve puanlar sıfırlandı!")
-                time.sleep(1)
-                st.rerun()
-
+            st.markdown("<div class='btn-danger'>", unsafe_allow_html=True)
+            if st.button("Sistemi Sıfırla (Görev/Puan)", use_container_width=True):
+                db.query(Task).delete(); db.query(User).update({User.points: 0}); db.commit(); st.rerun()
+            st.markdown("</div>", unsafe_allow_html=True)
         with t4: render_leaderboard(db)
         with t5: render_profile_tab()
 
-    # ── BİRİM BAŞKANI PANELİ ──
+    # ── BİRİM BAŞKANI ──
     elif cu.role == "Birim Başkanı":
         render_stats(cu.username)
-        t1, t2, t3, t4, t5 = st.tabs(["📋 Görevlerim", "📌 Ata", "👁️ Verdiklerim", "🏆 Lider", "👤 Profil"])
+        t1, t2, t3, t4, t5 = st.tabs(["Görevler", "Ata", "Takip", "Liderlik", "Profil"])
         with t1:
             for t in db.query(Task).filter(Task.assigned_to==cu.username, Task.status=="Bekliyor").all():
-                st.markdown(f'<div class="task-card"><div class="task-title">📌 {t.title}</div><div class="task-meta">{t.description}</div><span class="badge {BADGE.get(t.priority)}">{t.priority}</span> ⭐ {t.points}</div>', unsafe_allow_html=True)
-                if st.button("✔ Tamamla", key=f"bb_{t.id}", use_container_width=True):
+                st.markdown(f'<div class="task-card"><div class="task-title">{t.title}</div><div class="task-meta">{t.description}</div><span class="badge {BADGE.get(t.priority)}">{t.priority}</span> <span style="float:right; font-weight:800; color:#2DB5A0;">+{t.points} pts</span></div>', unsafe_allow_html=True)
+                if st.button("Tamamla", key=f"bb_{t.id}", use_container_width=True):
                     t.status, cu.points = "Tamamlandı", cu.points + t.points
-                    db.commit(); push_notification("Tebrikler! 🎉", f"'{t.title}' tamamlandı."); st.rerun()
+                    db.commit(); st.rerun()
         with t2:
             members = db.query(User).filter(User.role == "Üye").all()
-            if not members: st.info("Sistemde üye bulunmuyor.")
+            if not members: st.info("Sistemde üye yok.")
             else:
-                # İSİM BÖLME HATASI BURADA DÜZELTİLDİ: rsplit(" (", 1)[0]
-                assigned_to = st.selectbox("Üye Seç", [f"{u.username} ({u.alan})" for u in members]).rsplit(" (", 1)[0]
-                tt, td = st.text_input("Başlık"), st.text_area("Açıklama")
+                assigned_to = st.selectbox("Kime:", [f"{u.username} ({u.alan})" for u in members]).rsplit(" (", 1)[0]
+                tt, td = st.text_input("Başlık"), st.text_area("Detaylar")
                 c1, c2 = st.columns(2)
                 with c1: tp = st.selectbox("Öncelik", ["Acil","Yüksek","Orta","Düşük"])
                 with c2: tpts = st.number_input("Puan", min_value=1, value=10)
                 t_due = st.date_input("Son Tarih", value=date.today() + timedelta(days=7))
-                if st.button("🚀 Görevi Gönder", use_container_width=True):
-                    if not tt.strip():
-                        st.warning("Görev başlığı boş olamaz.")
+                st.markdown("<br>", unsafe_allow_html=True)
+                if st.button("Görevi Gönder", use_container_width=True):
+                    if not tt.strip(): st.warning("Başlık boş olamaz.")
                     else:
                         db.add(Task(assigned_to=assigned_to, assigned_by=cu.username, title=tt, description=td, priority=tp, points=tpts, status="Bekliyor", due_date=str(t_due)))
                         db.commit()
                         target = db.query(User).filter(User.username==assigned_to).first()
                         if target and target.email: trigger_background_email(target.email, tt, td, tp, tpts, str(t_due))
-                        push_notification("Görev Atandı ✅", f"'{tt}' -> {assigned_to}")
-                        st.success("Görev atandı!")
+                        st.success("Gönderildi!")
         with t3:
             for t in db.query(Task).filter(Task.assigned_by==cu.username).order_by(Task.id.desc()).limit(20).all():
-                st.write(f"**{t.title}** -> *{t.assigned_to}* ({t.status})")
+                st.markdown(f"<div style='background:#fff; padding:12px; border-radius:16px; margin-bottom:8px; font-weight:700;'>{t.title} <span style='font-size:11px; color:#64748b;'>-> {t.assigned_to}</span></div>", unsafe_allow_html=True)
         with t4: render_leaderboard(db)
         with t5: render_profile_tab()
 
-    # ── ÜYE PANELİ ──
+    # ── ÜYE ──
     else:
         render_stats(cu.username)
-        t1, t2, t3, t4 = st.tabs(["📋 Görevlerim", "✅ Tamamlananlar", "🏆 Liderlik", "👤 Profil"])
+        t1, t2, t3, t4 = st.tabs(["Görevler", "Geçmiş", "Liderlik", "Profil"])
         with t1:
             tasks = db.query(Task).filter(Task.assigned_to==cu.username, Task.status=="Bekliyor").all()
-            if not tasks: st.markdown('<div style="text-align:center;padding:2rem;"><div style="font-size:3rem;">🎉</div><b>Bekleyen görevin yok!</b></div>', unsafe_allow_html=True)
+            if not tasks: st.markdown('<div style="text-align:center;padding:3rem;"><div style="font-size:40px; margin-bottom:10px;">✨</div><b style="color:#1A2744;">Bekleyen göreviniz bulunmuyor.</b></div>', unsafe_allow_html=True)
             for t in tasks:
                 due_label = f"| Son: {t.due_date}" if t.due_date else ""
-                st.markdown(f'<div class="task-card"><div class="task-title">📌 {t.title}</div><div class="task-meta">{t.description}</div><div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:4px;"><span class="badge {BADGE.get(t.priority)}">{t.priority}</span> <span style="font-size:0.72rem;color:#5a7a76;">⭐ {t.points} puan {due_label}</span></div></div>', unsafe_allow_html=True)
+                st.markdown(f'<div class="task-card"><div class="task-title">{t.title}</div><div class="task-meta">{t.description}</div><div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:4px;"><span class="badge {BADGE.get(t.priority)}">{t.priority}</span> <span style="font-size:0.75rem; font-weight:800; color:#2DB5A0;">+{t.points} pts <span style="color:#94a3b8; font-weight:500;">{due_label}</span></span></div></div>', unsafe_allow_html=True)
                 col_a, col_b = st.columns([3, 2])
                 with col_a:
-                    if st.button("✔ Tamamla", key=f"u_{t.id}", use_container_width=True):
+                    if st.button("Tamamla", key=f"u_{t.id}", use_container_width=True):
                         t.status, cu.points = "Tamamlandı", cu.points + t.points
-                        db.commit(); push_notification("Tebrikler! 🎉", f"'{t.title}' tamamlandı."); st.rerun()
+                        db.commit(); st.rerun()
                 with col_b:
                     if t.due_date:
                         ics = make_ics(t.title, t.description or "", t.due_date)
-                        st.download_button(label="📅 Takvim", data=ics, file_name=f"arder_{t.id}.ics", mime="text/calendar", key=f"ics_{t.id}", use_container_width=True)
+                        st.download_button("Takvime Ekle", data=ics, file_name=f"arder_{t.id}.ics", mime="text/calendar", key=f"ics_{t.id}", use_container_width=True)
         with t2:
             done_tasks = db.query(Task).filter(Task.assigned_to==cu.username, Task.status=="Tamamlandı").order_by(Task.id.desc()).limit(20).all()
-            if done_tasks:
-                for t in done_tasks: st.markdown(f"""<div class="task-card done"><div class="task-title">✅ {t.title}</div><div class="task-meta" style="color:#2DB5A0;">+{t.points} puan kazanıldı</div></div>""", unsafe_allow_html=True)
-            else: st.info("Henüz tamamlanan görev yok.")
-
+            for t in done_tasks: st.markdown(f'<div class="task-card done"><div class="task-title">✓ {t.title}</div><div class="task-meta" style="color:#2DB5A0; font-weight:700;">+{t.points} puan eklendi</div></div>', unsafe_allow_html=True)
         with t3: render_leaderboard(db)
         with t4: render_profile_tab()
 
