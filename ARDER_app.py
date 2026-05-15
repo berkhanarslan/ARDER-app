@@ -312,7 +312,6 @@ if saved_cookie and not st.session_state.logged_in:
 # ══════════════════════════════════════════════════════════
 if not st.session_state.logged_in:
     
-    # Giriş ekranı özel logo ve başlık
     st.markdown(f'<div class="login-header">{LOGIN_LOGO_HTML}<h1>AKADEMİK</h1><p>RENKLER DERNEĞİ</p></div>', unsafe_allow_html=True)
     
     tab1, tab2 = st.tabs(["Giriş Yap", "Kayıt Ol"])
@@ -331,7 +330,6 @@ if not st.session_state.logged_in:
             
     with tab2:
         st.markdown("<br>", unsafe_allow_html=True)
-        # Duplicate ID Hatasını Çözen Key Eklemesi: key="kayit_sifre"
         ru, rmail, rp = st.text_input("Ad Soyad"), st.text_input("E-Posta"), st.text_input("Şifre", type="password", key="kayit_sifre")
         role = st.selectbox("Görev Dağılımı", ["Üye", "Birim Başkanı", "Moderatör"])
         alanlar = {"Üye": ["Üye", "Sosyal Medya", "İletişim", "İnsan Kaynakları", "Projeler", "Etkinlik"],
@@ -382,7 +380,6 @@ else:
             st.rerun()
         st.markdown("</div>", unsafe_allow_html=True)
 
-    # ── MODERATÖR ──
     if cu.role == "Moderatör":
         t1, t2, t3, t4, t5 = st.tabs(["Ata", "Yönet", "Üyeler", "Liderlik", "Profil"])
         with t1:
@@ -437,7 +434,6 @@ else:
         with t4: render_leaderboard(db)
         with t5: render_profile_tab()
 
-    # ── BİRİM BAŞKANI ──
     elif cu.role == "Birim Başkanı":
         render_stats(cu.username)
         t1, t2, t3, t4, t5 = tabs = st.tabs(["Görevler", "Ata", "Takip", "Liderlik", "Profil"])
@@ -472,7 +468,6 @@ else:
         with t4: render_leaderboard(db)
         with t5: render_profile_tab()
 
-    # ── ÜYE ──
     else:
         render_stats(cu.username)
         t1, t2, t3, t4 = st.tabs(["Görevler", "Geçmiş", "Liderlik", "Profil"])
