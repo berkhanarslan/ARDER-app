@@ -308,7 +308,7 @@ if saved_cookie and not st.session_state.logged_in:
         st.rerun()
 
 # ══════════════════════════════════════════════════════════
-# 7. GİRİŞ VE KAYIT EKRANI (YENİ MODERN TASARIM)
+# 7. GİRİŞ VE KAYIT EKRANI
 # ══════════════════════════════════════════════════════════
 if not st.session_state.logged_in:
     
@@ -331,6 +331,7 @@ if not st.session_state.logged_in:
             
     with tab2:
         st.markdown("<br>", unsafe_allow_html=True)
+        # Duplicate ID Hatasını Çözen Key Eklemesi: key="kayit_sifre"
         ru, rmail, rp = st.text_input("Ad Soyad"), st.text_input("E-Posta"), st.text_input("Şifre", type="password", key="kayit_sifre")
         role = st.selectbox("Görev Dağılımı", ["Üye", "Birim Başkanı", "Moderatör"])
         alanlar = {"Üye": ["Üye", "Sosyal Medya", "İletişim", "İnsan Kaynakları", "Projeler", "Etkinlik"],
@@ -348,7 +349,7 @@ if not st.session_state.logged_in:
                 st.success("Başarıyla kayıt olundu! Giriş sekmesinden devam edebilirsiniz.")
 
 # ══════════════════════════════════════════════════════════
-# 8. ANA PANELLER (BEYAZ TEMA VE YUMUŞAK KARTLAR)
+# 8. ANA PANELLER
 # ══════════════════════════════════════════════════════════
 else:
     cu = db.query(User).filter(User.username==st.session_state.username).first()
@@ -439,7 +440,7 @@ else:
     # ── BİRİM BAŞKANI ──
     elif cu.role == "Birim Başkanı":
         render_stats(cu.username)
-        t1, t2, t3, t4, t5 = st.tabs(["Görevler", "Ata", "Takip", "Liderlik", "Profil"])
+        t1, t2, t3, t4, t5 = tabs = st.tabs(["Görevler", "Ata", "Takip", "Liderlik", "Profil"])
         with t1:
             for t in db.query(Task).filter(Task.assigned_to==cu.username, Task.status=="Bekliyor").all():
                 st.markdown(f'<div class="task-card"><div class="task-title">{t.title}</div><div class="task-meta">{t.description}</div><span class="badge {BADGE.get(t.priority)}">{t.priority}</span> <span style="float:right; font-weight:800; color:#2DB5A0;">+{t.points} pts</span></div>', unsafe_allow_html=True)
