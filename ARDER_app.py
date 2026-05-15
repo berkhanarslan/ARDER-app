@@ -370,7 +370,7 @@ if not st.session_state.logged_in:
             
     with tab2:
         st.markdown("<br>", unsafe_allow_html=True)
-        ru, rmail, rp = st.text_input("Ad Soyad"), st.text_input("E-Posta"), st.text_input("Şifre", type="password")
+        ru, rmail, rp = st.text_input("Ad Soyad"), st.text_input("E-Posta"), st.text_input("Şifre", type="password", key="kayit_sifre")
         role = st.selectbox("Görev Dağılımı", ["Üye", "Birim Başkanı", "Moderatör"])
         alanlar = {"Üye": ["Üye", "Sosyal Medya", "İletişim", "İnsan Kaynakları", "Projeler", "Etkinlik"],
                    "Birim Başkanı": ["Sosyal Medya Başkanı", "İletişim Başkanı", "İK Başkanı", "Projeler Başkanı", "Etkinlik Başkanı"],
