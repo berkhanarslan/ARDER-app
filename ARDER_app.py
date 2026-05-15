@@ -267,7 +267,7 @@ if saved_cookie and not st.session_state.logged_in:
 # ══════════════════════════════════════════════════════════
 if not st.session_state.logged_in:
     
-    st.markdown(f'<div class="login-header">{LOGIN_LOGO_HTML}<h1>AKADEMİK</h1><p>RENKLER DERNEĞİ</p></div>', unsafe_allow_html=True)
+    st.markdown(f'<div class="login-header">{LOGIN_LOGO_HTML}</div>', unsafe_allow_html=True)
     
     tab1, tab2 = st.tabs(["Giriş Yap", "Kayıt Ol"])
     with tab1:
