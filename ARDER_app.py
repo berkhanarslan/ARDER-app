@@ -26,12 +26,13 @@ controller = CookieController()
 @st.cache_data
 def get_static_assets():
     logo_b64 = ""
-    for ext in ["logo.png","logo.jpg","logo.jpeg"]:
+    for ext in ["logo.png","logo.jpg","logo.jpeg", "LOGO.png"]:
         if os.path.exists(ext):
             with open(ext,"rb") as f: logo_b64 = base64.b64encode(f.read()).decode()
-            mime = "image/png" if ext.endswith(".png") else "image/jpeg"
-            logo_html = f'<img src="data:{mime};base64,{logo_b64}" style="height:40px;object-fit:contain;">'
-            login_logo_html = f'<img src="data:{mime};base64,{logo_b64}" style="height:140px;object-fit:contain;margin-bottom:10px;">'
+            mime = "image/png" if ext.lower().endswith(".png") else "image/jpeg"
+            # mix-blend-mode: multiply eklendi (Beyaz arkaplanı şeffaflaştırır ve arka planla iç içe geçirir)
+            logo_html = f'<img src="data:{mime};base64,{logo_b64}" style="height:40px;object-fit:contain;mix-blend-mode:multiply;">'
+            login_logo_html = f'<img src="data:{mime};base64,{logo_b64}" style="height:140px;object-fit:contain;margin-bottom:10px;mix-blend-mode:multiply;">'
             break
     else:
         logo_html = '<span style="font-size:40px;">🦚</span>'
@@ -41,7 +42,7 @@ def get_static_assets():
     _ICON_URI  = f"data:image/svg+xml;base64,{base64.b64encode(_ICON_SVG.encode()).decode()}"
     _manifest  = {"name":"ARDER","short_name":"ARDER","display":"standalone","background_color":"#f4f7f6","theme_color":"#ffffff","icons":[{"src":_ICON_URI,"sizes":"512x512","type":"image/svg+xml","purpose":"any maskable"}]}
     
-    # Ekrana yansımasını engellemek için tüm CSS tek satıra sıkıştırıldı (Markdown Hatası Çözümü)
+    # Ekrana yansımasını engellemek için tüm CSS tek satıra sıkıştırıldı
     html = f"""<link rel="manifest" href="data:application/manifest+json;base64,{base64.b64encode(json.dumps(_manifest).encode()).decode()}"><meta name="theme-color" content="#ffffff"><style>header[data-testid="stHeader"] {{ background: transparent !important; }}.viewerBadge_container, .stAppViewFooter, footer {{ display: none !important; }}.main .block-container {{ max-width:480px; margin:auto; padding:1rem; padding-top:2rem; }}[data-testid="stAppViewContainer"] {{ background-color:#f5f8f8; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }}div[data-baseweb="input"] > div {{ border-radius: 25px !important; border: 1px solid #e2e8f0 !important; background-color: #ffffff !important; padding: 4px 12px !important; box-shadow: inset 0 2px 4px rgba(0,0,0,0.02) !important; }}div[data-baseweb="select"] > div {{ border-radius: 25px !important; border: 1px solid #e2e8f0 !important; }}div.stButton>button {{ border-radius: 30px !important; font-weight: 700 !important; padding: 0.6rem 1rem !important; border: none !important; transition: all 0.3s ease; }}div.stButton>button:first-child {{ background: #2DB5A0 !important; color: #fff !important; box-shadow: 0 4px 14px rgba(45, 181, 160, 0.3) !important; }}div.stButton>button:hover {{ transform: translateY(-2px); box-shadow: 0 6px 20px rgba(45, 181, 160, 0.4) !important; }}.btn-danger>button {{ background: #ef4444 !important; color: #fff !important; box-shadow: 0 4px 14px rgba(239, 68, 68, 0.3) !important; }}.app-header {{ background: #ffffff; border-radius: 24px; padding: 1rem 1.2rem; margin-bottom: 1.5rem; display: flex; align-items: center; gap: 0.8rem; box-shadow: 0 4px 20px rgba(0,0,0,0.04); }}.app-header .brand-name {{ font-size: 1.15rem; font-weight: 900; color: #1A2744; line-height: 1.1; }}.app-header .brand-sub {{ font-size: 0.7rem; color: #2DB5A0; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; }}.login-header {{ text-align: center; margin-bottom: 2rem; margin-top: 1rem; }}.login-header h1 {{ color: #1A2744; font-size: 1.8rem; font-weight: 900; margin: 0; padding: 0; }}.login-header p {{ color: #2DB5A0; font-size: 0.85rem; font-weight: 700; margin: 0; padding: 0; letter-spacing: 1px; }}.stat-wrap {{ display:flex; gap:12px; margin:0.5rem 0 1.5rem 0; }}.stat-card {{ flex:1; background:#fff; border-radius:24px; box-shadow:0 8px 24px rgba(0,0,0,0.04); padding:1.2rem 0.8rem; text-align:center; display: flex; flex-direction: column; justify-content: center; }}.stat-card .label {{ font-size:0.7rem; color:#64748b; font-weight:600; margin-bottom:8px; }}.stat-card .value {{ font-size:1.8rem; font-weight:900; color:#1A2744; line-height:1; }}.stat-card .value.green {{ color: #2DB5A0; }}.task-card {{ background: #fff; border-radius: 20px; box-shadow: 0 4px 16px rgba(0,0,0,0.03); padding: 1.2rem; margin-bottom: 1rem; border-left: 6px solid #2DB5A0; position: relative; }}.task-card.done {{ border-left-color: #cbd5e1; opacity: 0.7; }}.task-title {{ font-weight: 800; color: #1A2744; font-size: 1rem; margin-bottom: 0.3rem; }}.task-meta {{ font-size: 0.8rem; color: #64748b; margin-bottom: 0.8rem; line-height: 1.4; }}.badge {{ display:inline-block; padding:0.25rem 0.7rem; border-radius:20px; font-size:0.7rem; font-weight:700; }}.badge-acil {{ background:#fee2e2; color:#b91c1c; }}.badge-yuksek {{ background:#fef3c7; color:#b45309; }}.badge-orta {{ background:#ccfbf1; color:#0f766e; }}.badge-dusuk {{ background:#e0f2fe; color:#0369a1; }}[data-testid="stTabs"] button {{ padding-bottom: 10px !important; }}[data-testid="stTabs"] button[aria-selected="true"] {{ color:#2DB5A0 !important; border-bottom: 3px solid #2DB5A0 !important; }}</style>"""
     return html, logo_html, login_logo_html
 
@@ -155,7 +156,7 @@ def show_header():
     st.markdown(f'<div class="app-header">{LOGO_HTML}<div><div class="brand-name">ARDER</div><div class="brand-sub">Akademik Renkler</div></div></div>', unsafe_allow_html=True)
 
 # ══════════════════════════════════════════════════════════
-# 5. LİDERLİK TABLOSU
+# 5. LİDERLİK TABLOSU (RENKLER TURKUAZ-YEŞİL OLARAK GÜNCELLENDİ)
 # ══════════════════════════════════════════════════════════
 @st.cache_data(ttl=60)
 def generate_leaderboard_html(users_dict):
@@ -172,15 +173,22 @@ def generate_leaderboard_html(users_dict):
     .pn{font-size:12px;font-weight:800;color:#1A2744;text-align:center;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;width:100%;}
     .pp{font-size:10px;color:#64748b;margin-bottom:5px;font-weight:600;}
     .blk{width:100%;display:flex;justify-content:center;padding-top:10px;font-weight:700;font-size:15px;border-radius:16px 16px 0 0;color:#fff;box-shadow:0 -4px 12px rgba(0,0,0,0.05);}
-    .g{height:140px;background:linear-gradient(135deg,#f59e0b,#d97706);}
+    
+    /* 1. Sıra Rengi Turkuaz Yeşil (#2DB5A0) */
+    .g{height:140px;background:linear-gradient(135deg,#48c6b4,#2DB5A0);}
     .s{height:105px;background:#e2e8f0;color:#475569;}
-    .b{height:80px;background:#d97706;}
+    /* 3. Sıra Rengi Mavi-Gri (Slate) */
+    .b{height:80px;background:linear-gradient(135deg,#94a3b8,#64748b);}
+    
     .li{display:flex;align-items:center;background:#fff;padding:12px 16px;border-radius:20px;margin-bottom:10px;box-shadow:0 4px 16px rgba(0,0,0,0.03);}
     .rb{width:32px;height:32px;display:flex;justify-content:center;align-items:center;border-radius:10px;font-weight:800;font-size:13px;color:#fff;margin-right:12px;flex-shrink:0;}
-    .r1{background:#f59e0b;}
+    
+    /* Rozet Renkleri */
+    .r1{background:#2DB5A0;}
     .r2{background:#cbd5e1;color:#475569;}
-    .r3{background:#d97706;}
+    .r3{background:#64748b;}
     .rx{background:#f8fafc;color:#64748b;}
+    
     .ln{font-weight:800;color:#1A2744;font-size:14px;}
     .lr{font-size:11px;color:#94a3b8;font-weight:500;}
     .lp{margin-left:auto;font-weight:900;color:#2DB5A0;font-size:18px;}
