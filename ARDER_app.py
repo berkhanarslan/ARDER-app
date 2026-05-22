@@ -353,7 +353,7 @@ else:
                     e_title = st.text_input("Etkinlik Adı")
                     e_desc = st.text_area("Etkinlik Açıklaması & Konumu")
                     e_date = st.date_input("Etkinlik Tarihi", min_value=date.today())
-                    if st.form_submit_button("🚀 Yayınla ve Herkese Mail At", use_container_width=True):
+                    if st.form_submit_button("🚀 Yayınla", use_container_width=True):
                         if e_title.strip():
                             db.add(Event(title=e_title, description=e_desc, event_date=str(e_date), created_by=cu.username))
                             db.commit()
