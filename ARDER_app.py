@@ -139,7 +139,7 @@ def send_email_notification(to_email, task_title, task_desc, priority, points, d
         if not s_email or not s_pass or not to_email: return False 
         msg = MIMEMultipart()
         msg['From'], msg['To'], msg['Subject'] = f"ARDER Sistem <{s_email}>", to_email, f"📌 Yeni Görev: {task_title}"
-        msg.attach(MIMEText(f"Yeni Görev: {task_title}\nÖncelik: {priority}\nPuan: {points}\nSon: {due_date}\n\nAçıklama:\n{task_desc}", 'plain'))
+        msg.attach(MIMEText(f"Yeni Görev: {task_title}\nÖncelik: {priority}\nPuan: {points}\nSon Tarih: {due_date}\n\nAçıklama:\n{task_desc}", 'plain'))
         server = smtplib.SMTP(st.secrets.get("SMTP_SERVER", "smtp.gmail.com"), int(st.secrets.get("SMTP_PORT", 587)))
         server.starttls(); server.login(s_email, s_pass); server.send_message(msg); server.quit()
     except: pass
@@ -181,8 +181,12 @@ def _flush_notification():
         st.session_state["_notif_title"] = st.session_state["_notif_body"] = None
 
 def make_ics(title, description, due_date_str):
-    try: dt = datetime.strptime(due_date_str, "%Y-%m-%d")
+    # Hem eski YYYY-MM-DD hem yeni DD.MM.YYYY formatlarını destekler
+    try:
+        if "-" in due_date_str: dt = datetime.strptime(due_date_str, "%Y-%m-%d")
+        else: dt = datetime.strptime(due_date_str, "%d.%m.%Y")
     except: dt = datetime.now() + timedelta(days=7)
+    
     dtstart, dtend = dt.strftime("%Y%m%d"), (dt + timedelta(days=1)).strftime("%Y%m%d")
     dtstamp, uid = datetime.utcnow().strftime("%Y%m%dT%H%M%SZ"), f"{datetime.utcnow().strftime('%Y%m%dT%H%M%SZ')}-arder-task@akademikreklerdernegi"
     desc = (description or "").replace("\n", "\\n").replace(",", "\\,")
@@ -352,15 +356,18 @@ else:
                 with st.form("new_event_form"):
                     e_title = st.text_input("Etkinlik Adı")
                     e_desc = st.text_area("Etkinlik Açıklaması & Konumu")
-                    e_date = st.date_input("Etkinlik Tarihi", min_value=date.today())
-                    if st.form_submit_button("🚀 Yayınla", use_container_width=True):
+                    # Format eklendi: DD.MM.YYYY
+                    e_date = st.date_input("Etkinlik Tarihi", min_value=date.today(), format="DD.MM.YYYY")
+                    if st.form_submit_button("🚀 Yayınla ve Herkese Mail At", use_container_width=True):
                         if e_title.strip():
-                            db.add(Event(title=e_title, description=e_desc, event_date=str(e_date), created_by=cu.username))
+                            # Tarihi Gün.Ay.Yıl olarak DB'ye yazdırıyoruz
+                            formatted_e_date = e_date.strftime("%d.%m.%Y")
+                            db.add(Event(title=e_title, description=e_desc, event_date=formatted_e_date, created_by=cu.username))
                             db.commit()
                             
                             all_users = db.query(User).filter(User.email != "").all()
                             for usr in all_users:
-                                trigger_event_email(usr.email, e_title, e_desc, str(e_date))
+                                trigger_event_email(usr.email, e_title, e_desc, formatted_e_date)
                             
                             st.success("Etkinlik yayınlandı ve tüm üyelere mail gönderiliyor!"); time.sleep(1.5); st.rerun()
                         else: st.warning("Başlık boş olamaz.")
@@ -422,16 +429,19 @@ else:
                 c1, c2 = st.columns(2)
                 with c1: tp = st.selectbox("Öncelik", ["Acil","Yüksek","Orta","Düşük"])
                 with c2: tpts = st.number_input("Puan", min_value=1, value=10)
-                t_due = st.date_input("Son Tarih", value=date.today() + timedelta(days=7), min_value=date.today())
+                # Format Eklendi
+                t_due = st.date_input("Son Tarih", value=date.today() + timedelta(days=7), min_value=date.today(), format="DD.MM.YYYY")
                 st.markdown("<br>", unsafe_allow_html=True)
                 if st.button("Görevi Gönder", use_container_width=True):
                     if not tt.strip(): st.warning("Başlık boş olamaz.")
                     else:
                         target_u = db.query(User).filter(User.username==assigned_to).first()
                         if target_u: target_u.total_assigned = (target_u.total_assigned or 0) + 1 
-                        db.add(Task(assigned_to=assigned_to, assigned_by=cu.username, title=tt, description=td, priority=tp, points=tpts, status="Bekliyor", due_date=str(t_due)))
+                        
+                        formatted_t_due = t_due.strftime("%d.%m.%Y")
+                        db.add(Task(assigned_to=assigned_to, assigned_by=cu.username, title=tt, description=td, priority=tp, points=tpts, status="Bekliyor", due_date=formatted_t_due))
                         db.commit()
-                        if target_u and target_u.email: trigger_background_email(target_u.email, tt, td, tp, tpts, str(t_due))
+                        if target_u and target_u.email: trigger_background_email(target_u.email, tt, td, tp, tpts, formatted_t_due)
                         st.success("Gönderildi!")
         with t2:
             all_t = db.query(Task).order_by(Task.id.desc()).limit(50).all()
@@ -496,16 +506,19 @@ else:
                 c1, c2 = st.columns(2)
                 with c1: tp = st.selectbox("Öncelik", ["Acil","Yüksek","Orta","Düşük"])
                 with c2: tpts = st.number_input("Puan", min_value=1, value=10)
-                t_due = st.date_input("Son Tarih", value=date.today() + timedelta(days=7))
+                # Format eklendi
+                t_due = st.date_input("Son Tarih", value=date.today() + timedelta(days=7), format="DD.MM.YYYY")
                 st.markdown("<br>", unsafe_allow_html=True)
                 if st.button("Görevi Gönder", use_container_width=True):
                     if not tt.strip(): st.warning("Başlık boş olamaz.")
                     else:
                         target_u = db.query(User).filter(User.username==assigned_to).first()
                         if target_u: target_u.total_assigned = (target_u.total_assigned or 0) + 1 
-                        db.add(Task(assigned_to=assigned_to, assigned_by=cu.username, title=tt, description=td, priority=tp, points=tpts, status="Bekliyor", due_date=str(t_due)))
+                        
+                        formatted_t_due = t_due.strftime("%d.%m.%Y")
+                        db.add(Task(assigned_to=assigned_to, assigned_by=cu.username, title=tt, description=td, priority=tp, points=tpts, status="Bekliyor", due_date=formatted_t_due))
                         db.commit()
-                        if target_u and target_u.email: trigger_background_email(target_u.email, tt, td, tp, tpts, str(t_due))
+                        if target_u and target_u.email: trigger_background_email(target_u.email, tt, td, tp, tpts, formatted_t_due)
                         st.success("Gönderildi!")
         with t3:
             st.markdown("### Ekibinizin Karneleri")
