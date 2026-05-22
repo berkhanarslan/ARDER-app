@@ -137,30 +137,47 @@ init_db()
 def send_email_notification(to_email, user_name, task_title, task_desc, priority, points, due_date):
     try:
         s_email, s_pass = st.secrets.get("EMAIL_USER", ""), st.secrets.get("EMAIL_PASS", "")
-        if not s_email or not s_pass or not to_email: return False 
+        if not s_email or not s_pass or not to_email: 
+            st.error("Mail ayarları eksik! Lütfen secrets dosyasını kontrol edin.")
+            return False 
+        
         msg = MIMEMultipart()
         msg['From'], msg['To'], msg['Subject'] = f"ARDER Sistem <{s_email}>", to_email, f"📌 Yeni Görev: {task_title}"
         
-        body = f"""Sayın {user_name},
-
-Akademik Renkler Derneği bünyesinde tarafınıza yeni bir görev atanmıştır.
-**Görev Bilgileri:**
-📌 **Başlık:** {task_title}
-⚡ **Öncelik:** {priority}
-⭐ **Puan Değeri:** {points}
-📅 **Son Teslim Tarihi:** {due_date}
-**Görev Açıklaması:** {task_desc}
-
-Lütfen uygulamaya giriş yaparak görevinizi detaylı inceleyiniz ve en kısa sürede aksiyon alınız.
-Herhangi bir sorunuz veya desteğe ihtiyacınız olursa bize ulaşmaktan çekinmeyiniz.
-Başarılar diler, çalışmalarınızda kolaylıklar temenni ederiz.
-Saygılarımızla,  
-**Akademik Renkler Derneği Yönetimi**"""
-
-        msg.attach(MIMEText(body, 'plain'))
+        # HTML formatında şık bir mail gövdesi
+        body = f"""
+        <html>
+            <body>
+                <p>Değerli <b>{user_name}</b>,</p>
+                <p>Akademik Renkler Derneği bünyesinde tarafınıza yeni bir görev atanmıştır.</p>
+                <h3>Görev Bilgileri:</h3>
+                <ul>
+                    <li>📌 <b>Başlık:</b> {task_title}</li>
+                    <li>⚡ <b>Öncelik:</b> {priority}</li>
+                    <li>⭐ <b>Puan Değeri:</b> {points}</li>
+                    <li>📅 <b>Son Teslim Tarihi:</b> {due_date}</li>
+                </ul>
+                <p><b>Görev Açıklaması:</b><br>{task_desc.replace(chr(10), '<br>')}</p>
+                <hr>
+                <p>Lütfen uygulamaya giriş yaparak görevinizi detaylı inceleyiniz ve en kısa sürede aksiyon alınız.</p>
+                <p>Başarılar diler, çalışmalarınızda kolaylıklar temenni ederiz.<br>
+                Saygılarımızla,<br>
+                <b>Akademik Renkler Derneği Yönetimi</b></p>
+            </body>
+        </html>
+        """
+        msg.attach(MIMEText(body, 'html'))
+        
         server = smtplib.SMTP(st.secrets.get("SMTP_SERVER", "smtp.gmail.com"), int(st.secrets.get("SMTP_PORT", 587)))
-        server.starttls(); server.login(s_email, s_pass); server.send_message(msg); server.quit()
-    except: pass
+        server.starttls()
+        server.login(s_email, s_pass)
+        server.send_message(msg)
+        server.quit()
+        return True
+    except Exception as e:
+        # Hata varsa ekranda görebilmen için bunu yazdık
+        st.error(f"Mail gönderilemedi! Hata detayı: {e}")
+        return False
 
 def send_event_email_notification(to_email, event_title, event_desc, event_date):
     try:
