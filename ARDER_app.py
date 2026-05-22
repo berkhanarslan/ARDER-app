@@ -150,7 +150,6 @@ def send_event_email_notification(to_email, event_title, event_desc, event_date)
         if not s_email or not s_pass or not to_email: return False 
         msg = MIMEMultipart()
         msg['From'], msg['To'], msg['Subject'] = f"ARDER Sistem <{s_email}>", to_email, f"📌 Yeni Etkinlik Daveti: {event_title}"
-        
         body = f"""Değerli Akademik Renkler Derneği Üyesi,
 
 Derneğimiz kapsamında "{event_title}" adlı yeni bir etkinlik planlanmıştır.
@@ -162,7 +161,6 @@ Sistem üzerinden (ARDER Uygulaması) 'Etkinlik' sekmesine girerek katılım dur
 
 İyi çalışmalar dileriz,
 Akademik Renkler Derneği Yönetimi"""
-
         msg.attach(MIMEText(body, 'plain'))
         server = smtplib.SMTP(st.secrets.get("SMTP_SERVER", "smtp.gmail.com"), int(st.secrets.get("SMTP_PORT", 587)))
         server.starttls(); server.login(s_email, s_pass); server.send_message(msg); server.quit()
@@ -181,12 +179,10 @@ def _flush_notification():
         st.session_state["_notif_title"] = st.session_state["_notif_body"] = None
 
 def make_ics(title, description, due_date_str):
-    # Hem eski YYYY-MM-DD hem yeni DD.MM.YYYY formatlarını destekler
     try:
         if "-" in due_date_str: dt = datetime.strptime(due_date_str, "%Y-%m-%d")
         else: dt = datetime.strptime(due_date_str, "%d.%m.%Y")
     except: dt = datetime.now() + timedelta(days=7)
-    
     dtstart, dtend = dt.strftime("%Y%m%d"), (dt + timedelta(days=1)).strftime("%Y%m%d")
     dtstamp, uid = datetime.utcnow().strftime("%Y%m%dT%H%M%SZ"), f"{datetime.utcnow().strftime('%Y%m%dT%H%M%SZ')}-arder-task@akademikreklerdernegi"
     desc = (description or "").replace("\n", "\\n").replace(",", "\\,")
@@ -306,7 +302,7 @@ if not st.session_state.logged_in:
                 db.commit(); st.success("Başarıyla kayıt olundu! Giriş sekmesinden devam edebilirsiniz.")
 
 # ══════════════════════════════════════════════════════════
-# 8. ANA PANELLER (ORTAK ETKİNLİK SİSTEMİ)
+# 8. ANA PANELLER
 # ══════════════════════════════════════════════════════════
 else:
     cu = db.query(User).filter(User.username==st.session_state.username).first()
@@ -328,9 +324,19 @@ else:
 
     def render_profile_tab():
         st.markdown("<br>", unsafe_allow_html=True)
-        assigned = cu.total_assigned or 0
         completed = cu.total_completed or 0
-        not_completed = assigned - completed
+        assigned = max(cu.total_assigned or 0, completed) # Negatife düşmeyi önler
+        
+        # SÜRESİ GEÇEN GÖREVLERİ HESAPLA
+        overdue_count = 0
+        today_d = datetime.now().date()
+        my_pending = db.query(Task).filter(Task.assigned_to==cu.username, Task.status=="Bekliyor").all()
+        for tsk in my_pending:
+            if tsk.due_date:
+                try:
+                    if datetime.strptime(tsk.due_date, "%d.%m.%Y").date() < today_d:
+                        overdue_count += 1
+                except: pass
         
         st.markdown(f'<div style="text-align:center; padding: 2rem; background:#fff; border-radius: 24px; box-shadow: 0 4px 20px rgba(0,0,0,0.03);"><div style="font-size: 50px; margin-bottom: 10px;">👤</div><h2 style="color:#1A2744; margin:0; font-weight:900;">{cu.username}</h2><p style="color:#64748b; font-weight:600; margin-top:5px;">{cu.role} • {cu.alan or ""}</p><div style="font-size: 24px; font-weight: 800; color: #2DB5A0; margin: 10px 0;">⭐ {cu.lifetime_points or 0} Toplam Puan</div></div>', unsafe_allow_html=True)
         
@@ -338,7 +344,7 @@ else:
         <div style='display:flex; justify-content:space-between; text-align:center; background:#fff; padding:15px; border-radius:20px; margin-top:15px; box-shadow: 0 4px 16px rgba(0,0,0,0.03);'>
             <div><div style='font-size:11px; color:#64748b; font-weight:700;'>Verilen Görev</div><div style='font-weight:900; font-size:20px; color:#1A2744;'>{assigned}</div></div>
             <div><div style='font-size:11px; color:#64748b; font-weight:700;'>Tamamlanan</div><div style='font-weight:900; font-size:20px; color:#2DB5A0;'>{completed}</div></div>
-            <div><div style='font-size:11px; color:#64748b; font-weight:700;'>Yapılmayan</div><div style='font-weight:900; font-size:20px; color:#ef4444;'>{not_completed}</div></div>
+            <div><div style='font-size:11px; color:#ef4444; font-weight:700;'>Süresi Geçen</div><div style='font-weight:900; font-size:20px; color:#ef4444;'>{overdue_count}</div></div>
         </div>
         """, unsafe_allow_html=True)
         
@@ -356,11 +362,9 @@ else:
                 with st.form("new_event_form"):
                     e_title = st.text_input("Etkinlik Adı")
                     e_desc = st.text_area("Etkinlik Açıklaması & Konumu")
-                    # Format eklendi: DD.MM.YYYY
                     e_date = st.date_input("Etkinlik Tarihi", min_value=date.today(), format="DD.MM.YYYY")
                     if st.form_submit_button("🚀 Yayınla ve Herkese Mail At", use_container_width=True):
                         if e_title.strip():
-                            # Tarihi Gün.Ay.Yıl olarak DB'ye yazdırıyoruz
                             formatted_e_date = e_date.strftime("%d.%m.%Y")
                             db.add(Event(title=e_title, description=e_desc, event_date=formatted_e_date, created_by=cu.username))
                             db.commit()
@@ -429,7 +433,6 @@ else:
                 c1, c2 = st.columns(2)
                 with c1: tp = st.selectbox("Öncelik", ["Acil","Yüksek","Orta","Düşük"])
                 with c2: tpts = st.number_input("Puan", min_value=1, value=10)
-                # Format Eklendi
                 t_due = st.date_input("Son Tarih", value=date.today() + timedelta(days=7), min_value=date.today(), format="DD.MM.YYYY")
                 st.markdown("<br>", unsafe_allow_html=True)
                 if st.button("Görevi Gönder", use_container_width=True):
@@ -464,13 +467,24 @@ else:
         with t3:
             for u in db.query(User).filter(User.username != cu.username).all():
                 with st.expander(f"👤 {u.username} ({u.role})"):
-                    assigned, completed = u.total_assigned or 0, u.total_completed or 0
-                    not_completed = assigned - completed
+                    completed = u.total_completed or 0
+                    assigned = max(u.total_assigned or 0, completed)
+                    
+                    overdue = 0
+                    today_d = datetime.now().date()
+                    usr_pending = db.query(Task).filter(Task.assigned_to==u.username, Task.status=="Bekliyor").all()
+                    for tsk in usr_pending:
+                        if tsk.due_date:
+                            try:
+                                if datetime.strptime(tsk.due_date, "%d.%m.%Y").date() < today_d:
+                                    overdue += 1
+                            except: pass
+
                     st.markdown(f"""
                     <div style='display:flex; justify-content:space-between; text-align:center; background:#f8fafc; padding:15px; border-radius:12px; margin-bottom:15px;'>
                         <div><div style='font-size:11px; color:#64748b; font-weight:700;'>Verilen</div><div style='font-weight:900; font-size:18px; color:#1A2744;'>{assigned}</div></div>
                         <div><div style='font-size:11px; color:#64748b; font-weight:700;'>Yapılan</div><div style='font-weight:900; font-size:18px; color:#2DB5A0;'>{completed}</div></div>
-                        <div><div style='font-size:11px; color:#64748b; font-weight:700;'>Kalan</div><div style='font-weight:900; font-size:18px; color:#ef4444;'>{not_completed}</div></div>
+                        <div><div style='font-size:11px; color:#ef4444; font-weight:700;'>Geciken</div><div style='font-weight:900; font-size:18px; color:#ef4444;'>{overdue}</div></div>
                         <div><div style='font-size:11px; color:#64748b; font-weight:700;'>Tüm Puan</div><div style='font-weight:900; font-size:18px; color:#f59e0b;'>⭐ {u.lifetime_points or 0}</div></div>
                     </div>
                     """, unsafe_allow_html=True)
@@ -506,7 +520,6 @@ else:
                 c1, c2 = st.columns(2)
                 with c1: tp = st.selectbox("Öncelik", ["Acil","Yüksek","Orta","Düşük"])
                 with c2: tpts = st.number_input("Puan", min_value=1, value=10)
-                # Format eklendi
                 t_due = st.date_input("Son Tarih", value=date.today() + timedelta(days=7), format="DD.MM.YYYY")
                 st.markdown("<br>", unsafe_allow_html=True)
                 if st.button("Görevi Gönder", use_container_width=True):
@@ -524,8 +537,18 @@ else:
             st.markdown("### Ekibinizin Karneleri")
             for u in db.query(User).filter(User.role == "Üye").all():
                 with st.expander(f"👤 {u.username} ({u.alan})"):
-                    assigned, completed = u.total_assigned or 0, u.total_completed or 0
-                    st.markdown(f"**Verilen İş:** {assigned} | **Yapılan:** {completed} | **Kalan:** {assigned-completed} | **Tüm Puan:** ⭐ {u.lifetime_points or 0}")
+                    completed = u.total_completed or 0
+                    assigned = max(u.total_assigned or 0, completed)
+                    overdue = 0
+                    today_d = datetime.now().date()
+                    usr_pending = db.query(Task).filter(Task.assigned_to==u.username, Task.status=="Bekliyor").all()
+                    for tsk in usr_pending:
+                        if tsk.due_date:
+                            try:
+                                if datetime.strptime(tsk.due_date, "%d.%m.%Y").date() < today_d:
+                                    overdue += 1
+                            except: pass
+                    st.markdown(f"**Verilen İş:** {assigned} | **Yapılan:** {completed} | **Geciken:** <span style='color:#ef4444;'>{overdue}</span> | **Tüm Puan:** ⭐ {u.lifetime_points or 0}", unsafe_allow_html=True)
             st.divider(); st.markdown("### Verdiğiniz Görevlerin Durumu")
             for t in db.query(Task).filter(Task.assigned_by==cu.username).order_by(Task.id.desc()).limit(20).all():
                 st.markdown(f"<div style='background:#fff; padding:12px; border-radius:16px; margin-bottom:8px; font-weight:700;'>{t.title} <span style='font-size:11px; color:#64748b;'>-> {t.assigned_to} ({t.status})</span></div>", unsafe_allow_html=True)
