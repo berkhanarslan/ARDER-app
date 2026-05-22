@@ -134,52 +134,33 @@ init_db()
 # ══════════════════════════════════════════════════════════
 # 4. YARDIMCI FONKSİYONLAR VE MAİL SİSTEMİ
 # ══════════════════════════════════════════════════════════
-def send_email_notification(to_email, user_name, task_title, task_desc, priority, points, due_date):
+def send_email_notification(to_email, task_title, task_desc, priority, points, due_date):
     try:
         s_email, s_pass = st.secrets.get("EMAIL_USER", ""), st.secrets.get("EMAIL_PASS", "")
-        if not s_email or not s_pass or not to_email: 
-            st.error("Mail ayarları eksik!")
-            return False
-        
+        if not s_email or not s_pass or not to_email: return False 
         msg = MIMEMultipart()
         msg['From'], msg['To'], msg['Subject'] = f"ARDER Sistem <{s_email}>", to_email, f"📌 Yeni Görev: {task_title}"
-        
-        # Mail yazın burası (Aynen bıraktım)
         body = f"""Sayın {user_name},
 
 Akademik Renkler Derneği bünyesinde tarafınıza yeni bir görev atanmıştır.
 
 **Görev Bilgileri:**
-
 📌 **Başlık:** {task_title}
 ⚡ **Öncelik:** {priority}
 ⭐ **Puan Değeri:** {points}
 📅 **Son Teslim Tarihi:** {due_date}
 
-**Görev Açıklaması:**
-{task_desc}
+**Görev Açıklaması:** {task_desc}
 
 Lütfen uygulamaya giriş yaparak görevinizi detaylı inceleyiniz ve en kısa sürede aksiyon alınız.
-
 Herhangi bir sorunuz veya desteğe ihtiyacınız olursa bize ulaşmaktan çekinmeyiniz.
-
 Başarılar diler, çalışmalarınızda kolaylıklar temenni ederiz.
-
 Saygılarımızla,  
 **Akademik Renkler Derneği Yönetimi**"""
-
-        msg.attach(MIMEText(body, 'plain'))
-        
+        msg.attach(MIMEText(body, 'plain')
         server = smtplib.SMTP(st.secrets.get("SMTP_SERVER", "smtp.gmail.com"), int(st.secrets.get("SMTP_PORT", 587)))
-        server.starttls()
-        server.login(s_email, s_pass)
-        server.send_message(msg)
-        server.quit()
-        return True
-    except Exception as e:
-        # HATAYI BURADA EKRANDA GÖRECEKSİN
-        st.error(f"Mail gönderim hatası: {e}")
-        return False
+        server.starttls(); server.login(s_email, s_pass); server.send_message(msg); server.quit()
+    except: pass
 
 def send_event_email_notification(to_email, event_title, event_desc, event_date):
     try:
