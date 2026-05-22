@@ -136,17 +136,11 @@ init_db()
 # ══════════════════════════════════════════════════════════
 def send_email_notification(to_email, user_name, task_title, task_desc, priority, points, due_date):
     try:
-        s_email = st.secrets.get("EMAIL_USER", "")
-        s_pass = st.secrets.get("EMAIL_PASS", "")
-        
-        if not s_email or not s_pass or not to_email:
-            return False
-
+        s_email, s_pass = st.secrets.get("EMAIL_USER", ""), st.secrets.get("EMAIL_PASS", "")
+        if not s_email or not s_pass or not to_email: return False 
         msg = MIMEMultipart()
-        msg['From'] = f"ARDER Sistem <{s_email}>"
-        msg['To'] = to_email
-        msg['Subject'] = f"📌 Yeni Görev: {task_title}"
-
+        msg['From'], msg['To'], msg['Subject'] = f"ARDER Sistem <{s_email}>", to_email, f"📌 Yeni Görev: {task_title}"
+        
         body = f"""Sayın {user_name},
 
 Akademik Renkler Derneği bünyesinde tarafınıza yeni bir görev atanmıştır.
@@ -164,18 +158,9 @@ Saygılarımızla,
 **Akademik Renkler Derneği Yönetimi**"""
 
         msg.attach(MIMEText(body, 'plain'))
-        
-        server = smtplib.SMTP(st.secrets.get("SMTP_SERVER", "smtp.gmail.com"), 
-                            int(st.secrets.get("SMTP_PORT", 587)))
-        server.starttls()
-        server.login(s_email, s_pass)
-        server.send_message(msg)
-        server.quit()
-        
-        return True
-        
-    except:
-        return False
+        server = smtplib.SMTP(st.secrets.get("SMTP_SERVER", "smtp.gmail.com"), int(st.secrets.get("SMTP_PORT", 587)))
+        server.starttls(); server.login(s_email, s_pass); server.send_message(msg); server.quit()
+    except: pass
 
 def send_event_email_notification(to_email, event_title, event_desc, event_date):
     try:
