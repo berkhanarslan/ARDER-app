@@ -157,7 +157,7 @@ Herhangi bir sorunuz veya desteğe ihtiyacınız olursa bize ulaşmaktan çekinm
 Başarılar diler, çalışmalarınızda kolaylıklar temenni ederiz.
 Saygılarımızla,  
 **Akademik Renkler Derneği Yönetimi**"""
-        msg.attach(MIMEText(body, 'plain')
+        msg.attach(MIMEText(body, 'plain'))
         server = smtplib.SMTP(st.secrets.get("SMTP_SERVER", "smtp.gmail.com"), int(st.secrets.get("SMTP_PORT", 587)))
         server.starttls(); server.login(s_email, s_pass); server.send_message(msg); server.quit()
     except: pass
