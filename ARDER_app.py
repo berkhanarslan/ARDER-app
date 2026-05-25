@@ -455,7 +455,7 @@ else:
                         db.delete(e); db.commit(); st.rerun()
                     st.markdown("</div><hr>", unsafe_allow_html=True)
 
-        st.markdown("### 📅 Yaklaşan Etkinlikler (LCV)")
+        st.markdown("### 📅 Yaklaşan Etkinlikler")
         events = db.query(Event).order_by(Event.id.desc()).all()
         if not events:
             st.markdown('<div style="text-align:center;padding:3rem;"><div style="font-size:40px; margin-bottom:10px;">🏝️</div><b style="color:#1A2744;">Yaklaşan etkinlik görünmüyor.</b></div>', unsafe_allow_html=True)
