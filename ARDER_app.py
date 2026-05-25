@@ -41,13 +41,30 @@ def get_static_assets():
     _ICON_URI  = f"data:image/svg+xml;base64,{base64.b64encode(_ICON_SVG.encode()).decode()}"
     _manifest  = {"name":"ARDER","short_name":"ARDER","display":"standalone","background_color":"#f4f7f6","theme_color":"#ffffff","icons":[{"src":_ICON_URI,"sizes":"512x512","type":"image/svg+xml","purpose":"any maskable"}]}
     
-    # overscroll-behavior-y: none eklendi (Aşağı çekerek yenilemeyi iptal eder)
     html = f"""<link rel="manifest" href="data:application/manifest+json;base64,{base64.b64encode(json.dumps(_manifest).encode()).decode()}"><meta name="theme-color" content="#ffffff"><style>html, body {{ overscroll-behavior-y: none !important; overscroll-behavior-x: none !important; }} header[data-testid="stHeader"] {{ background: transparent !important; }}.viewerBadge_container, .stAppViewFooter, footer {{ display: none !important; }}.main .block-container {{ max-width:480px; margin:auto; padding:1rem; padding-top:2rem; }}[data-testid="stAppViewContainer"] {{ background-color:#f5f8f8; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; overscroll-behavior-y: none !important; }}div[data-baseweb="input"] > div, div[data-baseweb="textarea"] > div {{ border-radius: 20px !important; border: 1px solid #e2e8f0 !important; background-color: #ffffff !important; padding: 4px 12px !important; box-shadow: inset 0 2px 4px rgba(0,0,0,0.02) !important; }}div[data-baseweb="select"] > div {{ border-radius: 25px !important; border: 1px solid #e2e8f0 !important; }}div.stButton>button {{ border-radius: 30px !important; font-weight: 700 !important; padding: 0.6rem 1rem !important; border: none !important; transition: all 0.3s ease; }}div.stButton>button:first-child {{ background: linear-gradient(135deg, #1976D2, #2DB5A0) !important; color: #fff !important; box-shadow: 0 4px 14px rgba(45, 181, 160, 0.3) !important; }}div.stButton>button:hover {{ transform: translateY(-2px); box-shadow: 0 6px 20px rgba(45, 181, 160, 0.4) !important; }}.btn-danger>button {{ background: linear-gradient(135deg, #ef4444, #dc2626) !important; color: #fff !important; box-shadow: 0 4px 14px rgba(239, 68, 68, 0.3) !important; }}.btn-secondary>button {{ background: linear-gradient(135deg, #94a3b8, #64748b) !important; color: #fff !important; box-shadow: 0 4px 14px rgba(100, 116, 139, 0.3) !important; }}.app-header {{ background: #ffffff; border-radius: 24px; padding: 1rem 1.2rem; margin-bottom: 1.5rem; display: flex; align-items: center; gap: 0.8rem; box-shadow: 0 4px 20px rgba(0,0,0,0.04); }}.app-header .brand-name {{ font-size: 1.15rem; font-weight: 900; color: #1A2744; line-height: 1.1; }}.app-header .brand-sub {{ font-size: 0.7rem; color: #2DB5A0; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; }}.login-header {{ text-align: center; margin-bottom: 2rem; margin-top: 1rem; }}.stat-wrap {{ display:flex; gap:12px; margin:0.5rem 0 1.5rem 0; }}.stat-card {{ flex:1; background:#fff; border-radius:24px; box-shadow:0 8px 24px rgba(0,0,0,0.04); padding:1.2rem 0.8rem; text-align:center; display: flex; flex-direction: column; justify-content: center; }}.stat-card .label {{ font-size:0.7rem; color:#64748b; font-weight:600; margin-bottom:8px; }}.stat-card .value {{ font-size:1.8rem; font-weight:900; color:#1A2744; line-height:1; }}.stat-card .value.green {{ color: #2DB5A0; }}.task-card {{ background: #fff; border-radius: 20px; box-shadow: 0 4px 16px rgba(0,0,0,0.03); padding: 1.2rem; margin-bottom: 1rem; border-left: 6px solid #2DB5A0; position: relative; }}.task-card.done {{ border-left-color: #cbd5e1; opacity: 0.7; }}.task-title {{ font-weight: 800; color: #1A2744; font-size: 1rem; margin-bottom: 0.3rem; }}.task-meta {{ font-size: 0.8rem; color: #64748b; margin-bottom: 0.8rem; line-height: 1.4; }}.badge {{ display:inline-block; padding:0.25rem 0.7rem; border-radius:20px; font-size:0.7rem; font-weight:700; }}.badge-acil {{ background:#fee2e2; color:#b91c1c; }}.badge-yuksek {{ background:#fef3c7; color:#b45309; }}.badge-orta {{ background:#ccfbf1; color:#0f766e; }}.badge-dusuk {{ background:#e0f2fe; color:#0369a1; }}[data-testid="stTabs"] button {{ padding-bottom: 10px !important; }}[data-testid="stTabs"] button[aria-selected="true"] {{ color:#2DB5A0 !important; border-bottom: 3px solid #2DB5A0 !important; }}</style>"""
     return html, logo_html, login_logo_html
 
 STATIC_HTML, LOGO_HTML, LOGIN_LOGO_HTML = get_static_assets()
 st.markdown(STATIC_HTML, unsafe_allow_html=True)
-components.html("<script>if ('Notification' in window && Notification.permission === 'default') { Notification.requestPermission(); }</script>", height=0)
+
+# YENİLEME ENGELLEYİCİ JS KODU (Mobil için kesin çözüm)
+components.html("""
+<script>
+if ('Notification' in window && Notification.permission === 'default') { Notification.requestPermission(); }
+
+document.addEventListener('touchstart', function(e) {
+    if (window.scrollY === 0 && e.touches[0].clientY > 0) {
+        document.body.style.overscrollBehaviorY = 'none';
+    }
+}, { passive: true });
+
+document.addEventListener('touchmove', function(e) {
+    if (window.scrollY === 0 && e.touches[0].clientY > 0) {
+        e.preventDefault();
+    }
+}, { passive: false });
+</script>
+""", height=0)
 
 # ══════════════════════════════════════════════════════════
 # 3. VERİTABANI BAĞLANTISI VE MODELLER
@@ -134,33 +151,39 @@ init_db()
 # ══════════════════════════════════════════════════════════
 # 4. YARDIMCI FONKSİYONLAR VE MAİL SİSTEMİ
 # ══════════════════════════════════════════════════════════
-def send_email_notification(to_email, task_title, task_desc, priority, points, due_date):
+def send_email_notification(to_email, user_name, task_title, task_desc, priority, points, due_date):
     try:
         s_email, s_pass = st.secrets.get("EMAIL_USER", ""), st.secrets.get("EMAIL_PASS", "")
         if not s_email or not s_pass or not to_email: return False 
+        
         msg = MIMEMultipart()
         msg['From'], msg['To'], msg['Subject'] = f"ARDER Sistem <{s_email}>", to_email, f"📌 Yeni Görev: {task_title}"
-        body = f"""Sayın {user_name},
+        
+        body = f"""Merhaba {user_name},
 
-Akademik Renkler Derneği bünyesinde tarafınıza yeni bir görev atanmıştır.
+Akademik Renkler Derneği sisteminde tarafına yeni bir görev atandı. İlgili detayları aşağıda bulabilirsin:
 
-**Görev Bilgileri:**
-📌 **Başlık:** {task_title}
-⚡ **Öncelik:** {priority}
-⭐ **Puan Değeri:** {points}
-📅 **Son Teslim Tarihi:** {due_date}
+Görev Bilgileri:
+📌 Başlık: {task_title}
+⚡ Öncelik: {priority}
+⭐ Puan: {points}
+📅 Son Tarih: {due_date}
 
-**Görev Açıklaması:** {task_desc}
+Açıklama:
+{task_desc}
 
-Lütfen uygulamaya giriş yaparak görevinizi detaylı inceleyiniz ve en kısa sürede aksiyon alınız.
-Herhangi bir sorunuz veya desteğe ihtiyacınız olursa bize ulaşmaktan çekinmeyiniz.
-Başarılar diler, çalışmalarınızda kolaylıklar temenni ederiz.
-Saygılarımızla,  
-**Akademik Renkler Derneği Yönetimi**"""
+Lütfen uygulamaya giriş yapıp görevi detaylıca incele ve tamamlandığında sistem üzerinden işaretlemeyi unutma. Herhangi bir sorun olursa bize her zaman ulaşabilirsin.
+
+Kolay gelsin!
+
+Sevgiler,
+Akademik Renkler Derneği Yönetimi"""
+
         msg.attach(MIMEText(body, 'plain'))
         server = smtplib.SMTP(st.secrets.get("SMTP_SERVER", "smtp.gmail.com"), int(st.secrets.get("SMTP_PORT", 587)))
         server.starttls(); server.login(s_email, s_pass); server.send_message(msg); server.quit()
-    except: pass
+    except Exception as e: 
+        print(f"Mail Hatası: {e}")
 
 def send_event_email_notification(to_email, event_title, event_desc, event_date):
     try:
@@ -168,17 +191,19 @@ def send_event_email_notification(to_email, event_title, event_desc, event_date)
         if not s_email or not s_pass or not to_email: return False 
         msg = MIMEMultipart()
         msg['From'], msg['To'], msg['Subject'] = f"ARDER Sistem <{s_email}>", to_email, f"📌 Yeni Etkinlik Daveti: {event_title}"
-        body = f"""Değerli Akademik Renkler Derneği Üyesi,
+        
+        body = f"""Merhaba,
 
-Derneğimiz kapsamında "{event_title}" adlı yeni bir etkinlik planlanmıştır.
+Derneğimiz kapsamında "{event_title}" adlı yeni bir etkinlik planlandı!
 
 📅 Tarih: {event_date}
-📍 Detaylar ve Konum: {event_desc}
+📍 Detaylar: {event_desc}
 
-Sistem üzerinden (ARDER Uygulaması) 'Etkinlik' sekmesine girerek katılım durumunuzu (LCV) bildirmenizi önemle rica ederiz.
+Sistem üzerinden (ARDER Uygulaması) 'Etkinlik' sekmesine girip katılım durumunu (LCV) bildirmeni rica ederiz. Seni aramızda görmekten mutluluk duyarız.
 
-İyi çalışmalar dileriz,
+Görüşmek üzere,
 Akademik Renkler Derneği Yönetimi"""
+        
         msg.attach(MIMEText(body, 'plain'))
         server = smtplib.SMTP(st.secrets.get("SMTP_SERVER", "smtp.gmail.com"), int(st.secrets.get("SMTP_PORT", 587)))
         server.starttls(); server.login(s_email, s_pass); server.send_message(msg); server.quit()
@@ -461,7 +486,7 @@ else:
                         formatted_t_due = t_due.strftime("%d.%m.%Y")
                         db.add(Task(assigned_to=assigned_to, assigned_by=cu.username, title=tt, description=td, priority=tp, points=tpts, status="Bekliyor", due_date=formatted_t_due))
                         db.commit()
-                        if target_u and target_u.email: trigger_background_email(target_u.email, tt, td, tp, tpts, formatted_t_due)
+                        if target_u and target_u.email: trigger_background_email(target_u.email, target_u.username, tt, td, tp, tpts, formatted_t_due)
                         st.success("Gönderildi!")
         with t2:
             all_t = db.query(Task).order_by(Task.id.desc()).limit(50).all()
@@ -547,7 +572,7 @@ else:
                         formatted_t_due = t_due.strftime("%d.%m.%Y")
                         db.add(Task(assigned_to=assigned_to, assigned_by=cu.username, title=tt, description=td, priority=tp, points=tpts, status="Bekliyor", due_date=formatted_t_due))
                         db.commit()
-                        if target_u and target_u.email: trigger_background_email(target_u.email, tt, td, tp, tpts, formatted_t_due)
+                        if target_u and target_u.email: trigger_background_email(target_u.email, target_u.username, tt, td, tp, tpts, formatted_t_due)
                         st.success("Gönderildi!")
         with t3:
             st.markdown("### Ekibinizin Karneleri")
