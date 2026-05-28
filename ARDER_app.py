@@ -181,8 +181,7 @@ Görev Bilgileri:
 ⭐ Puan Değeri: {points}
 📅 Son Teslim Tarihi: {due_date}
 
-Görev Açıklaması: 
-{task_desc}
+Görev Açıklaması: {task_desc}
 
 Lütfen uygulamaya giriş yaparak görevinizin detaylarını inceleyiniz.
 Herhangi bir sorunuz veya desteğe ihtiyacınız olursa bize ulaşmaktan çekinmeyiniz.
@@ -548,7 +547,7 @@ else:
                     st.markdown("</div>", unsafe_allow_html=True)
             st.divider()
             st.markdown("<div class='btn-danger'>", unsafe_allow_html=True)
-            if st.button("Sistemi Sıfırla (Karneler Silinmez)", use_container_width=True):
+            if st.button("Sistemi Sıfırla", use_container_width=True):
                 db.query(Task).delete(); db.query(User).update({User.points: 0}); db.commit(); st.rerun()
             st.markdown("</div>", unsafe_allow_html=True)
         with t4: render_events_tab(is_admin=True)
