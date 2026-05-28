@@ -176,9 +176,7 @@ def send_email_notification(to_email, user_name, task_title, task_desc, priority
         msg = MIMEMultipart()
         msg['From'], msg['To'], msg['Subject'] = f"ARDER Sistem <{s_email}>", to_email, f"📌 Yeni Görev: {task_title}"
         
-        body = f"""Sayın {user_name},
-
-Akademik Renkler Derneği bünyesinde tarafınıza yeni bir görev atanmıştır.
+        body = f"""Sayın {user_name}, Akademik Renkler Derneği bünyesinde tarafınıza yeni bir görev atanmıştır.
 
 Görev Bilgileri:
 📌 Başlık: {task_title}
@@ -189,9 +187,8 @@ Görev Bilgileri:
 Görev Açıklaması: 
 {task_desc}
 
-Lütfen uygulamaya giriş yaparak görevinizi detaylı inceleyiniz.
+Lütfen uygulamaya giriş yaparak görevinizin detaylarını inceleyiniz.
 Herhangi bir sorunuz veya desteğe ihtiyacınız olursa bize ulaşmaktan çekinmeyiniz.
-Başarılar diler, çalışmalarınızda kolaylıklar temenni ederiz.
 
 Saygılarımızla,  
 Akademik Renkler Derneği Yönetimi"""
@@ -216,7 +213,7 @@ Derneğimiz kapsamında "{event_title}" adlı yeni bir etkinlik planlanmıştır
 📅 Tarih: {event_date}
 📍 Detaylar ve Konum: {event_desc}
 
-Sistem üzerinden (ARDER Uygulaması) 'Etkinlik' sekmesine girerek katılım durumunuzu bildirmenizi önemle rica ederiz.
+Sistem üzerinden 'Etkinlik' sekmesine girerek katılım durumunuzu bildirmenizi önemle rica ederiz.
 
 İyi çalışmalar dileriz,
 Akademik Renkler Derneği Yönetimi"""
