@@ -41,7 +41,6 @@ def get_static_assets():
     _ICON_URI  = f"data:image/svg+xml;base64,{base64.b64encode(_ICON_SVG.encode()).decode()}"
     _manifest  = {"name":"ARDER","short_name":"ARDER","display":"standalone","background_color":"#f4f7f6","theme_color":"#ffffff","icons":[{"src":_ICON_URI,"sizes":"512x512","type":"image/svg+xml","purpose":"any maskable"}]}
     
-    # APK için Pull-to-refresh'i tamamen yok eden CSS (position: fixed ve touch-action taktiği)
     html = f"""<link rel="manifest" href="data:application/manifest+json;base64,{base64.b64encode(json.dumps(_manifest).encode()).decode()}"><meta name="theme-color" content="#ffffff"><style>
     html, body {{ overscroll-behavior-y: none !important; overscroll-behavior-x: none !important; touch-action: none !important; position: fixed !important; width: 100vw !important; height: 100vh !important; overflow: hidden !important; }} 
     header[data-testid="stHeader"] {{ background: transparent !important; }}
@@ -78,8 +77,6 @@ def get_static_assets():
 
 STATIC_HTML, LOGO_HTML, LOGIN_LOGO_HTML = get_static_assets()
 st.markdown(STATIC_HTML, unsafe_allow_html=True)
-
-# Bildirim İzinleri (Yenileme engelleyici JS tamamen CSS tarafına taşındı)
 components.html("<script>if ('Notification' in window && Notification.permission === 'default') { Notification.requestPermission(); }</script>", height=0)
 
 
@@ -284,7 +281,8 @@ def generate_leaderboard_html(users_dict):
         html += "</div>"
         for i, u in enumerate(users_dict):
             r = i + 1; rc = f"r{r}" if r <= 3 else "rx"
-            html += f"<div class='li'><div class='rb {rc}'>{r}</div><div class='av' style='width:40px;height:40px;font-size:16px;margin-bottom:0;margin-right:12px;border-radius:12px;'>{u['username'][0].upper()}</div><div style='overflow:hidden;'><div class='ln'>{u['username']}</div><div class='lr'>{u['role']} | {u['alan']}</div></div><div class='lp'>{u['points']}<span style='font-size:10px;color:#cbd5e1;'> pts</span></div></div>"
+            # Liderlik tablosunda rol yerine sadece birim (alan) yazacak
+            html += f"<div class='li'><div class='rb {rc}'>{r}</div><div class='av' style='width:40px;height:40px;font-size:16px;margin-bottom:0;margin-right:12px;border-radius:12px;'>{u['username'][0].upper()}</div><div style='overflow:hidden;'><div class='ln'>{u['username']}</div><div class='lr'>{u['alan']}</div></div><div class='lp'>{u['points']}<span style='font-size:10px;color:#cbd5e1;'> pts</span></div></div>"
     html += "</div></body></html>"
     return html
 
@@ -394,7 +392,8 @@ else:
                         overdue_count += 1
                 except: pass
         
-        st.markdown(f'<div style="text-align:center; padding: 2rem; background:#fff; border-radius: 24px; box-shadow: 0 4px 20px rgba(0,0,0,0.03);"><div style="font-size: 50px; margin-bottom: 10px;">👤</div><h2 style="color:#1A2744; margin:0; font-weight:900;">{cu.username}</h2><p style="color:#64748b; font-weight:600; margin-top:5px;">{cu.role} • {cu.alan or ""}</p><div style="font-size: 24px; font-weight: 800; color: #2DB5A0; margin: 10px 0;">⭐ {cu.lifetime_points or 0} Toplam Puan</div></div>', unsafe_allow_html=True)
+        # Profil ekranında rol ismini kaldırıp doğrudan Birim (Alan) yazdırdık
+        st.markdown(f'<div style="text-align:center; padding: 2rem; background:#fff; border-radius: 24px; box-shadow: 0 4px 20px rgba(0,0,0,0.03);"><div style="font-size: 50px; margin-bottom: 10px;">👤</div><h2 style="color:#1A2744; margin:0; font-weight:900;">{cu.username}</h2><p style="color:#64748b; font-weight:600; margin-top:5px;">{cu.alan or ""}</p><div style="font-size: 24px; font-weight: 800; color: #2DB5A0; margin: 10px 0;">⭐ {cu.lifetime_points or 0} Toplam Puan</div></div>', unsafe_allow_html=True)
         
         st.markdown(f"""
         <div style='display:flex; justify-content:space-between; text-align:center; background:#fff; padding:15px; border-radius:20px; margin-top:15px; box-shadow: 0 4px 16px rgba(0,0,0,0.03);'>
@@ -482,7 +481,8 @@ else:
             users = db.query(User).filter(User.username != cu.username).all()
             if not users: st.info("Sistemde üye yok.")
             else:
-                assigned_to = st.selectbox("Kime:", [f"{u.username} ({u.role})" for u in users]).rsplit(" (", 1)[0]
+                # Kime listesinde rol yerine birim (alan) yazacak
+                assigned_to = st.selectbox("Kime:", [f"{u.username} ({u.alan})" for u in users]).rsplit(" (", 1)[0]
                 tt, td = st.text_input("Başlık"), st.text_area("Detaylar", height=80)
                 c1, c2 = st.columns(2)
                 with c1: tp = st.selectbox("Öncelik", ["Acil","Yüksek","Orta","Düşük"])
@@ -520,7 +520,8 @@ else:
                         st.markdown("</div>", unsafe_allow_html=True)
         with t3:
             for u in db.query(User).filter(User.username != cu.username).all():
-                with st.expander(f"👤 {u.username} ({u.role})"):
+                # Üyeler listesinde rol yerine birim (alan) yazacak
+                with st.expander(f"👤 {u.username} ({u.alan})"):
                     assigned, completed = u.total_assigned or 0, u.total_completed or 0
                     
                     overdue = 0
