@@ -181,7 +181,8 @@ Görev Bilgileri:
 ⭐ Puan Değeri: {points}
 📅 Son Teslim Tarihi: {due_date}
 
-Görev Açıklaması: {task_desc}
+Görev Açıklaması: 
+{task_desc}
 
 Lütfen uygulamaya giriş yaparak görevinizin detaylarını inceleyiniz.
 Herhangi bir sorunuz veya desteğe ihtiyacınız olursa bize ulaşmaktan çekinmeyiniz.
@@ -280,7 +281,6 @@ def generate_leaderboard_html(users_dict):
         html += "</div>"
         for i, u in enumerate(users_dict):
             r = i + 1; rc = f"r{r}" if r <= 3 else "rx"
-            # Liderlik tablosunda rol yerine sadece birim (alan) yazacak
             html += f"<div class='li'><div class='rb {rc}'>{r}</div><div class='av' style='width:40px;height:40px;font-size:16px;margin-bottom:0;margin-right:12px;border-radius:12px;'>{u['username'][0].upper()}</div><div style='overflow:hidden;'><div class='ln'>{u['username']}</div><div class='lr'>{u['alan']}</div></div><div class='lp'>{u['points']}<span style='font-size:10px;color:#cbd5e1;'> pts</span></div></div>"
     html += "</div></body></html>"
     return html
@@ -391,7 +391,6 @@ else:
                         overdue_count += 1
                 except: pass
         
-        # Profil ekranında rol ismini kaldırıp doğrudan Birim (Alan) yazdırdık
         st.markdown(f'<div style="text-align:center; padding: 2rem; background:#fff; border-radius: 24px; box-shadow: 0 4px 20px rgba(0,0,0,0.03);"><div style="font-size: 50px; margin-bottom: 10px;">👤</div><h2 style="color:#1A2744; margin:0; font-weight:900;">{cu.username}</h2><p style="color:#64748b; font-weight:600; margin-top:5px;">{cu.alan or ""}</p><div style="font-size: 24px; font-weight: 800; color: #2DB5A0; margin: 10px 0;">⭐ {cu.lifetime_points or 0} Toplam Puan</div></div>', unsafe_allow_html=True)
         
         st.markdown(f"""
@@ -474,13 +473,32 @@ else:
                             db.commit(); st.success("Yanıtınız kaydedildi!"); time.sleep(1); st.rerun()
                 st.markdown("<br>", unsafe_allow_html=True)
 
+    # ── ROL BAZLI SEKME DAĞILIMI ──
     if cu.role == "Moderatör":
-        t1, t2, t3, t4, t5, t6 = st.tabs(["Ata", "Yönet", "Üyeler", "Etkinlik", "Liderlik", "Profil"])
+        render_stats(cu.username)
+        t1, t2, t3, t4, t5, t6, t7 = st.tabs(["Görevler", "Ata", "Yönet", "Üyeler", "Etkinlik", "Liderlik", "Profil"])
+        
         with t1:
+            tasks = db.query(Task).filter(Task.assigned_to==cu.username, Task.status=="Bekliyor").all()
+            if not tasks: st.markdown('<div style="text-align:center;padding:3rem;"><div style="font-size:40px; margin-bottom:10px;">✨</div><b style="color:#1A2744;">Bekleyen göreviniz bulunmuyor.</b></div>', unsafe_allow_html=True)
+            for t in tasks:
+                due_label = f"| Son: {t.due_date}" if t.due_date else ""
+                st.markdown(f'<div class="task-card"><div class="task-title">{t.title}</div><div class="task-meta">{t.description}</div><div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:4px;"><span class="badge {BADGE.get(t.priority)}">{t.priority}</span> <span style="font-size:0.75rem; font-weight:800; color:#2DB5A0;">+{t.points} pts <span style="color:#94a3b8; font-weight:500;">{due_label}</span></span></div></div>', unsafe_allow_html=True)
+                col_a, col_b = st.columns([3, 2])
+                with col_a:
+                    if st.button("Tamamla", key=f"m_{t.id}", use_container_width=True):
+                        t.status = "Tamamlandı"
+                        cu.points = (cu.points or 0) + t.points; cu.lifetime_points = (cu.lifetime_points or 0) + t.points; cu.total_completed = (cu.total_completed or 0) + 1
+                        db.commit(); st.rerun()
+                with col_b:
+                    if t.due_date:
+                        ics = make_ics(t.title, t.description or "", t.due_date)
+                        st.download_button("Takvime Ekle", data=ics, file_name=f"arder_{t.id}.ics", mime="text/calendar", key=f"m_ics_{t.id}", use_container_width=True)
+
+        with t2:
             users = db.query(User).filter(User.username != cu.username).all()
             if not users: st.info("Sistemde üye yok.")
             else:
-                # Kime listesinde rol yerine birim (alan) yazacak
                 assigned_to = st.selectbox("Kime:", [f"{u.username} ({u.alan})" for u in users]).rsplit(" (", 1)[0]
                 tt, td = st.text_input("Başlık"), st.text_area("Detaylar", height=80)
                 c1, c2 = st.columns(2)
@@ -499,7 +517,7 @@ else:
                         db.commit()
                         if target_u and target_u.email: trigger_background_email(target_u.email, target_u.username, tt, td, tp, tpts, formatted_t_due)
                         st.success("Gönderildi!")
-        with t2:
+        with t3:
             all_t = db.query(Task).order_by(Task.id.desc()).limit(50).all()
             for t in all_t:
                 status_color = "color:#2DB5A0;" if t.status == "Tamamlandı" else "color:#ef4444;" if t.status == "İptal Edildi" else "color:#eab308;"
@@ -517,9 +535,8 @@ else:
                             t.status = "İptal Edildi"
                             db.commit(); st.rerun()
                         st.markdown("</div>", unsafe_allow_html=True)
-        with t3:
+        with t4:
             for u in db.query(User).filter(User.username != cu.username).all():
-                # Üyeler listesinde rol yerine birim (alan) yazacak
                 with st.expander(f"👤 {u.username} ({u.alan})"):
                     assigned, completed = u.total_assigned or 0, u.total_completed or 0
                     
@@ -547,23 +564,32 @@ else:
                     st.markdown("</div>", unsafe_allow_html=True)
             st.divider()
             st.markdown("<div class='btn-danger'>", unsafe_allow_html=True)
-            if st.button("Sistemi Sıfırla", use_container_width=True):
+            if st.button("Sistemi Sıfırla (Karneler Silinmez)", use_container_width=True):
                 db.query(Task).delete(); db.query(User).update({User.points: 0}); db.commit(); st.rerun()
             st.markdown("</div>", unsafe_allow_html=True)
-        with t4: render_events_tab(is_admin=True)
-        with t5: render_leaderboard(db)
-        with t6: render_profile_tab()
+        with t5: render_events_tab(is_admin=True)
+        with t6: render_leaderboard(db)
+        with t7: render_profile_tab()
 
     elif cu.role == "Birim Başkanı":
         render_stats(cu.username)
         t1, t2, t3, t4, t5, t6 = st.tabs(["Görevler", "Ata", "Takip", "Etkinlik", "Liderlik", "Profil"])
         with t1:
-            for t in db.query(Task).filter(Task.assigned_to==cu.username, Task.status=="Bekliyor").all():
-                st.markdown(f'<div class="task-card"><div class="task-title">{t.title}</div><div class="task-meta">{t.description}</div><span class="badge {BADGE.get(t.priority)}">{t.priority}</span> <span style="float:right; font-weight:800; color:#2DB5A0;">+{t.points} pts</span></div>', unsafe_allow_html=True)
-                if st.button("Tamamla", key=f"bb_{t.id}", use_container_width=True):
-                    t.status = "Tamamlandı"
-                    cu.points = (cu.points or 0) + t.points; cu.lifetime_points = (cu.lifetime_points or 0) + t.points; cu.total_completed = (cu.total_completed or 0) + 1
-                    db.commit(); st.rerun()
+            tasks = db.query(Task).filter(Task.assigned_to==cu.username, Task.status=="Bekliyor").all()
+            if not tasks: st.markdown('<div style="text-align:center;padding:3rem;"><div style="font-size:40px; margin-bottom:10px;">✨</div><b style="color:#1A2744;">Bekleyen göreviniz bulunmuyor.</b></div>', unsafe_allow_html=True)
+            for t in tasks:
+                due_label = f"| Son: {t.due_date}" if t.due_date else ""
+                st.markdown(f'<div class="task-card"><div class="task-title">{t.title}</div><div class="task-meta">{t.description}</div><div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:4px;"><span class="badge {BADGE.get(t.priority)}">{t.priority}</span> <span style="font-size:0.75rem; font-weight:800; color:#2DB5A0;">+{t.points} pts <span style="color:#94a3b8; font-weight:500;">{due_label}</span></span></div></div>', unsafe_allow_html=True)
+                col_a, col_b = st.columns([3, 2])
+                with col_a:
+                    if st.button("Tamamla", key=f"bb_{t.id}", use_container_width=True):
+                        t.status = "Tamamlandı"
+                        cu.points = (cu.points or 0) + t.points; cu.lifetime_points = (cu.lifetime_points or 0) + t.points; cu.total_completed = (cu.total_completed or 0) + 1
+                        db.commit(); st.rerun()
+                with col_b:
+                    if t.due_date:
+                        ics = make_ics(t.title, t.description or "", t.due_date)
+                        st.download_button("Takvime Ekle", data=ics, file_name=f"arder_{t.id}.ics", mime="text/calendar", key=f"bb_ics_{t.id}", use_container_width=True)
         with t2:
             members = db.query(User).filter(User.role == "Üye").all()
             if not members: st.info("Sistemde üye yok.")
