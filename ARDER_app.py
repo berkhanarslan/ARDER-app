@@ -476,7 +476,7 @@ else:
     # ── ROL BAZLI SEKME DAĞILIMI ──
     if cu.role == "Moderatör":
         render_stats(cu.username)
-        t1, t2, t3, t4, t5, t6, t7 = st.tabs(["Görevler", "Ata", "Yönet", "Üyeler", "Etkinlik", "Liderlik", "Profil"])
+        t1, t2, t3, t4, t5, t6, t7 = st.tabs(["Görevler", "Görev Ata", "Yönet", "Üyeler", "Etkinlik", "Liderlik", "Profil"])
         
         with t1:
             tasks = db.query(Task).filter(Task.assigned_to==cu.username, Task.status=="Bekliyor").all()
@@ -573,7 +573,7 @@ else:
 
     elif cu.role == "Birim Başkanı":
         render_stats(cu.username)
-        t1, t2, t3, t4, t5, t6 = st.tabs(["Görevler", "Ata", "Takip", "Etkinlik", "Liderlik", "Profil"])
+        t1, t2, t3, t4, t5, t6 = st.tabs(["Görevler", "Görev Ata", "Takip", "Etkinlik", "Liderlik", "Profil"])
         with t1:
             tasks = db.query(Task).filter(Task.assigned_to==cu.username, Task.status=="Bekliyor").all()
             if not tasks: st.markdown('<div style="text-align:center;padding:3rem;"><div style="font-size:40px; margin-bottom:10px;">✨</div><b style="color:#1A2744;">Bekleyen göreviniz bulunmuyor.</b></div>', unsafe_allow_html=True)
