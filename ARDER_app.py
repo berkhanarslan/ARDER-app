@@ -47,8 +47,7 @@ def get_static_assets():
     .viewerBadge_container, .stAppViewFooter, footer {{ display: none !important; }}
     .main .block-container {{ max-width:480px; margin:auto; padding:1rem; padding-top:2rem; }}
     [data-testid="stAppViewContainer"] {{ background-color:#f5f8f8; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; overscroll-behavior-y: none !important; touch-action: pan-y !important; height: 100vh !important; overflow-y: auto !important; -webkit-overflow-scrolling: touch !important; }}
-    div[data-baseweb="input"] > div, div[data-baseweb="textarea"] > div {{ border-radius: 20px !important; border: 1px solid #e2e8f0 !important; background-color: #ffffff !important; padding: 4px 12px !important; box-shadow: inset 0 2px 4px rgba(0,0,0,0.02) !important; }}
-    div[data-baseweb="select"] > div {{ border-radius: 25px !important; border: 1px solid #e2e8f0 !important; }}
+    div[data-baseweb="input"] > div, div[data-baseweb="textarea"] > div, div[data-baseweb="select"] > div {{ border-radius: 20px !important; border: 1px solid #e2e8f0 !important; background-color: #ffffff !important; box-shadow: inset 0 2px 4px rgba(0,0,0,0.02) !important; }}
     div.stButton>button {{ border-radius: 30px !important; font-weight: 700 !important; padding: 0.6rem 1rem !important; border: none !important; transition: all 0.3s ease; }}
     div.stButton>button:first-child {{ background: linear-gradient(135deg, #1976D2, #2DB5A0) !important; color: #fff !important; box-shadow: 0 4px 14px rgba(45, 181, 160, 0.3) !important; }}
     div.stButton>button:hover {{ transform: translateY(-2px); box-shadow: 0 6px 20px rgba(45, 181, 160, 0.4) !important; }}
@@ -582,29 +581,52 @@ else:
             users = db.query(User).filter(User.username != cu.username).all()
             if not users: st.info("Sistemde üye yok.")
             else:
-                assigned_to = st.selectbox("Kime:", [f"{u.username} ({u.alan})" for u in users]).rsplit(" (", 1)[0]
-                tt = st.text_input("Başlık")
-                td = st.text_area("Detaylar (Görevin Genel Amacı)", height=60)
-                t_steps = st.text_area("Görev Adımları (İsteğe bağlı. Her satıra 1 adım yazın)", height=100)
+                assign_mode = st.radio("Atama Türü Seçin:", ["Bireysel (Çoklu Seçim)", "Tüm Birime Ata"], horizontal=True)
+                st.markdown("<hr style='margin:0.5rem 0;'>", unsafe_allow_html=True)
                 
-                c1, c2 = st.columns(2)
-                with c1: tp = st.selectbox("Öncelik", ["Acil","Yüksek","Orta","Düşük"])
-                with c2: tpts = st.number_input("Maks. Puan", min_value=1, value=10)
-                t_due = st.date_input("Son Tarih", value=date.today() + timedelta(days=7), min_value=date.today(), format="DD.MM.YYYY")
-                st.markdown("<br>", unsafe_allow_html=True)
-                if st.button("Görevi Gönder", use_container_width=True):
-                    if not tt.strip(): st.warning("Başlık boş olamaz.")
+                with st.form("assign_task_mod"):
+                    target_usernames = []
+                    if assign_mode == "Bireysel (Çoklu Seçim)":
+                        selected_items = st.multiselect("Kime Görev Atanacak:", [f"{u.username} ({u.alan})" for u in users])
                     else:
-                        target_u = db.query(User).filter(User.username==assigned_to).first()
-                        if target_u: target_u.total_assigned = (target_u.total_assigned or 0) + 1 
-                        
-                        formatted_t_due = t_due.strftime("%d.%m.%Y")
-                        steps_str = json.dumps([s.strip() for s in t_steps.split('\n') if s.strip()]) if t_steps.strip() else ""
-                        
-                        db.add(Task(assigned_to=assigned_to, assigned_by=cu.username, title=tt, description=td, steps=steps_str, priority=tp, points=tpts, status="Bekliyor", due_date=formatted_t_due))
-                        db.commit()
-                        if target_u and target_u.email: trigger_background_email(target_u.email, target_u.username, tt, td, tp, tpts, formatted_t_due)
-                        st.success("Görev ve adımlar başarıyla gönderildi!")
+                        alanlar_list = sorted(list(set([u.alan for u in users if u.alan])))
+                        selected_alan = st.selectbox("Hangi Birime Görev Atanacak:", alanlar_list)
+                    
+                    tt = st.text_input("Başlık")
+                    td = st.text_area("Detaylar (Görevin Genel Amacı)", height=60)
+                    t_steps = st.text_area("Görev Adımları (İsteğe bağlı. Her satıra 1 adım yazın)", height=100)
+                    
+                    c1, c2 = st.columns(2)
+                    with c1: tp = st.selectbox("Öncelik", ["Acil","Yüksek","Orta","Düşük"])
+                    with c2: tpts = st.number_input("Maks. Puan", min_value=1, value=10)
+                    t_due = st.date_input("Son Tarih", value=date.today() + timedelta(days=7), min_value=date.today(), format="DD.MM.YYYY")
+                    st.markdown("<br>", unsafe_allow_html=True)
+                    
+                    if st.form_submit_button("Görevi Gönder", use_container_width=True):
+                        if not tt.strip(): 
+                            st.warning("Başlık boş olamaz.")
+                        else:
+                            if assign_mode == "Bireysel (Çoklu Seçim)":
+                                target_usernames = [s.rsplit(" (", 1)[0] for s in selected_items]
+                            else:
+                                target_users_query = db.query(User).filter(User.alan == selected_alan).all()
+                                target_usernames = [u.username for u in target_users_query]
+
+                            if not target_usernames:
+                                st.error("Lütfen atanacak kişi veya birimi seçin!")
+                            else:
+                                formatted_t_due = t_due.strftime("%d.%m.%Y")
+                                steps_str = json.dumps([s.strip() for s in t_steps.split('\n') if s.strip()]) if t_steps.strip() else ""
+                                
+                                for uname in target_usernames:
+                                    target_u = db.query(User).filter(User.username==uname).first()
+                                    if target_u: target_u.total_assigned = (target_u.total_assigned or 0) + 1 
+                                    db.add(Task(assigned_to=uname, assigned_by=cu.username, title=tt, description=td, steps=steps_str, priority=tp, points=tpts, status="Bekliyor", due_date=formatted_t_due))
+                                    if target_u and target_u.email: 
+                                        trigger_background_email(target_u.email, target_u.username, tt, td, tp, tpts, formatted_t_due)
+                                
+                                db.commit()
+                                st.success(f"Görev başarıyla {len(target_usernames)} kişiye atandı ve mailleri gönderildi!")
         
         with t3:
             st.markdown("### 📊 Tüm Verileri Dışa Aktar")
@@ -640,7 +662,6 @@ else:
             
             st.divider()
             st.markdown("### 📋 Geçmiş Görev Kayıtları")
-            # HATA DÜZELTİLDİ: all_t yerine all_tasks_db üzerinden döngü yapılıyor
             for t in all_tasks_db:
                 status_color = "color:#2DB5A0;" if t.status == "Tamamlandı" else "color:#ef4444;" if t.status == "İptal Edildi" else "color:#eab308;"
                 with st.expander(f"{t.title} -> {t.assigned_to}"):
@@ -746,29 +767,53 @@ else:
             members = db.query(User).filter(User.role == "Üye").all()
             if not members: st.info("Sistemde üye yok.")
             else:
-                assigned_to = st.selectbox("Kime:", [f"{u.username} ({u.alan})" for u in members]).rsplit(" (", 1)[0]
-                tt = st.text_input("Başlık")
-                td = st.text_area("Detaylar (Görevin Genel Amacı)", height=60)
-                t_steps = st.text_area("Görev Adımları (İsteğe bağlı. Her satıra 1 adım yazın)", height=100)
+                assign_mode = st.radio("Atama Türü Seçin:", ["Bireysel (Çoklu Seçim)", "Tüm Birime Ata"], horizontal=True)
+                st.markdown("<hr style='margin:0.5rem 0;'>", unsafe_allow_html=True)
                 
-                c1, c2 = st.columns(2)
-                with c1: tp = st.selectbox("Öncelik", ["Acil","Yüksek","Orta","Düşük"])
-                with c2: tpts = st.number_input("Maks. Puan", min_value=1, value=10)
-                t_due = st.date_input("Son Tarih", value=date.today() + timedelta(days=7), format="DD.MM.YYYY")
-                st.markdown("<br>", unsafe_allow_html=True)
-                if st.button("Görevi Gönder", use_container_width=True):
-                    if not tt.strip(): st.warning("Başlık boş olamaz.")
+                with st.form("assign_task_bb"):
+                    target_usernames = []
+                    if assign_mode == "Bireysel (Çoklu Seçim)":
+                        selected_items = st.multiselect("Kime Görev Atanacak:", [f"{u.username} ({u.alan})" for u in members])
                     else:
-                        target_u = db.query(User).filter(User.username==assigned_to).first()
-                        if target_u: target_u.total_assigned = (target_u.total_assigned or 0) + 1 
-                        
-                        formatted_t_due = t_due.strftime("%d.%m.%Y")
-                        steps_str = json.dumps([s.strip() for s in t_steps.split('\n') if s.strip()]) if t_steps.strip() else ""
-                        
-                        db.add(Task(assigned_to=assigned_to, assigned_by=cu.username, title=tt, description=td, steps=steps_str, priority=tp, points=tpts, status="Bekliyor", due_date=formatted_t_due))
-                        db.commit()
-                        if target_u and target_u.email: trigger_background_email(target_u.email, target_u.username, tt, td, tp, tpts, formatted_t_due)
-                        st.success("Görev ve adımlar başarıyla gönderildi!")
+                        alanlar_list = sorted(list(set([u.alan for u in members if u.alan])))
+                        selected_alan = st.selectbox("Hangi Birime Görev Atanacak:", alanlar_list)
+                    
+                    tt = st.text_input("Başlık")
+                    td = st.text_area("Detaylar (Görevin Genel Amacı)", height=60)
+                    t_steps = st.text_area("Görev Adımları (İsteğe bağlı. Her satıra 1 adım yazın)", height=100)
+                    
+                    c1, c2 = st.columns(2)
+                    with c1: tp = st.selectbox("Öncelik", ["Acil","Yüksek","Orta","Düşük"])
+                    with c2: tpts = st.number_input("Maks. Puan", min_value=1, value=10)
+                    t_due = st.date_input("Son Tarih", value=date.today() + timedelta(days=7), format="DD.MM.YYYY")
+                    st.markdown("<br>", unsafe_allow_html=True)
+                    
+                    if st.form_submit_button("Görevi Gönder", use_container_width=True):
+                        if not tt.strip(): 
+                            st.warning("Başlık boş olamaz.")
+                        else:
+                            if assign_mode == "Bireysel (Çoklu Seçim)":
+                                target_usernames = [s.rsplit(" (", 1)[0] for s in selected_items]
+                            else:
+                                target_users_query = db.query(User).filter(User.alan == selected_alan).all()
+                                target_usernames = [u.username for u in target_users_query]
+
+                            if not target_usernames:
+                                st.error("Lütfen atanacak kişi veya birimi seçin!")
+                            else:
+                                formatted_t_due = t_due.strftime("%d.%m.%Y")
+                                steps_str = json.dumps([s.strip() for s in t_steps.split('\n') if s.strip()]) if t_steps.strip() else ""
+                                
+                                for uname in target_usernames:
+                                    target_u = db.query(User).filter(User.username==uname).first()
+                                    if target_u: target_u.total_assigned = (target_u.total_assigned or 0) + 1 
+                                    db.add(Task(assigned_to=uname, assigned_by=cu.username, title=tt, description=td, steps=steps_str, priority=tp, points=tpts, status="Bekliyor", due_date=formatted_t_due))
+                                    if target_u and target_u.email: 
+                                        trigger_background_email(target_u.email, target_u.username, tt, td, tp, tpts, formatted_t_due)
+                                
+                                db.commit()
+                                st.success(f"Görev başarıyla {len(target_usernames)} kişiye atandı ve mailleri gönderildi!")
+
         with t3:
             st.markdown("### Ekibinizin Karneleri")
             for u in db.query(User).filter(User.role == "Üye").all():
