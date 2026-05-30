@@ -671,8 +671,11 @@ else:
                     if t.status != "İptal Edildi":
                         st.markdown("<div class='btn-danger'>", unsafe_allow_html=True)
                         if st.button("İptal Et", key=f"c_{t.id}"):
+                            target_u = db.query(User).filter(User.username == t.assigned_to).first()
+                            # 🚨 DEĞİŞİKLİK: İptal edildiğinde 'Verilen Görev' sayısını düşürüyoruz
+                            if target_u:
+                                target_u.total_assigned = max(0, (target_u.total_assigned or 0) - 1)
                             if t.status == "Tamamlandı":
-                                target_u = db.query(User).filter(User.username == t.assigned_to).first()
                                 if target_u:
                                     target_u.points = max(0, target_u.points - (t.earned_points or t.points))
                                     target_u.lifetime_points = max(0, (target_u.lifetime_points or 0) - (t.earned_points or t.points))
@@ -813,7 +816,6 @@ else:
                                 
                                 db.commit()
                                 st.success(f"Görev başarıyla {len(target_usernames)} kişiye atandı ve mailleri gönderildi!")
-
         with t3:
             st.markdown("### Ekibinizin Karneleri")
             for u in db.query(User).filter(User.role == "Üye").all():
