@@ -122,6 +122,8 @@ class Task(Base):
     points = Column(Integer, default=10)
     status = Column(String, default="Bekliyor") 
     due_date = Column(String, default="")
+    steps = Column(String, default="")  # YENİ: Adım adım görevler için
+    report = Column(String, default="") # YENİ: Görev tamamlandığında yazılan rapor için
 
 class Event(Base):
     __tablename__ = "events"
@@ -149,6 +151,8 @@ def init_db():
                 "ALTER TABLE users ADD COLUMN IF NOT EXISTS alan VARCHAR DEFAULT 'Belirtilmedi';",
                 "ALTER TABLE users ADD COLUMN IF NOT EXISTS email VARCHAR DEFAULT '';",
                 "ALTER TABLE tasks ADD COLUMN IF NOT EXISTS due_date VARCHAR DEFAULT '';",
+                "ALTER TABLE tasks ADD COLUMN IF NOT EXISTS steps VARCHAR DEFAULT '';",
+                "ALTER TABLE tasks ADD COLUMN IF NOT EXISTS report VARCHAR DEFAULT '';",
                 "ALTER TABLE users ADD COLUMN IF NOT EXISTS lifetime_points INTEGER DEFAULT 0;",
                 "UPDATE users SET lifetime_points = 0 WHERE lifetime_points IS NULL;",
                 "ALTER TABLE users ADD COLUMN IF NOT EXISTS total_assigned INTEGER DEFAULT 0;",
@@ -190,11 +194,57 @@ Herhangi bir sorunuz veya desteğe ihtiyacınız olursa bize ulaşmaktan çekinm
 Saygılarımızla,  
 Akademik Renkler Derneği Yönetimi"""
 
-        msg.attach(MIMEText(body, 'plain'))
+        msg.attach(MIMEText(body, 'plain', 'utf-8'))
         server = smtplib.SMTP(st.secrets.get("SMTP_SERVER", "smtp.gmail.com"), int(st.secrets.get("SMTP_PORT", 587)))
         server.starttls(); server.login(s_email, s_pass); server.send_message(msg); server.quit()
     except Exception as e: 
         print(f"Mail Hatası: {e}")
+
+# YENİ EKLENEN FONKSİYON: RAPOR MAİLİ GÖNDERME
+def send_report_email_notification(task_title, completed_by, assigned_by_username, report_text):
+    try:
+        db_session = SessionLocal()
+        assigner = db_session.query(User).filter(User.username == assigned_by_username).first()
+        baskan = db_session.query(User).filter(User.alan == "Başkan").first()
+        
+        emails_to_send = []
+        if assigner and assigner.email: emails_to_send.append(assigner.email)
+        if baskan and baskan.email and baskan.email not in emails_to_send: emails_to_send.append(baskan.email)
+        db_session.close()
+        
+        if not emails_to_send: return
+        
+        s_email, s_pass = st.secrets.get("EMAIL_USER", ""), st.secrets.get("EMAIL_PASS", "")
+        if not s_email or not s_pass: return
+        
+        server = smtplib.SMTP(st.secrets.get("SMTP_SERVER", "smtp.gmail.com"), int(st.secrets.get("SMTP_PORT", 587)))
+        server.starttls()
+        server.login(s_email, s_pass)
+        
+        for to_email in emails_to_send:
+            msg = MIMEMultipart()
+            msg['From'] = f"ARDER Sistem <{s_email}>"
+            msg['To'] = to_email
+            msg['Subject'] = f"✅ Görev Raporu: {task_title}"
+            
+            body = f"""Merhaba,
+            
+Ekip üyelerimizden {completed_by}, "{task_title}" görevini tamamladı ve sistem üzerinden aşağıdaki raporu iletti.
+
+📋 GÖREV RAPORU
+-------------------------------------------------
+{report_text}
+-------------------------------------------------
+
+Bilgilerinize sunarız,
+Akademik Renkler Derneği Yönetimi"""
+            
+            msg.attach(MIMEText(body, 'plain', 'utf-8'))
+            server.send_message(msg)
+            
+        server.quit()
+    except Exception as e:
+        print(f"Rapor Mail Hatası: {e}")
 
 def send_event_email_notification(to_email, event_title, event_desc, event_date):
     try:
@@ -215,13 +265,14 @@ Sistem üzerinden 'Etkinlik' sekmesine girerek katılım durumunuzu bildirmenizi
 İyi çalışmalar dileriz,
 Akademik Renkler Derneği Yönetimi"""
         
-        msg.attach(MIMEText(body, 'plain'))
+        msg.attach(MIMEText(body, 'plain', 'utf-8'))
         server = smtplib.SMTP(st.secrets.get("SMTP_SERVER", "smtp.gmail.com"), int(st.secrets.get("SMTP_PORT", 587)))
         server.starttls(); server.login(s_email, s_pass); server.send_message(msg); server.quit()
     except: pass
 
 def trigger_background_email(*args): threading.Thread(target=send_email_notification, args=args).start()
 def trigger_event_email(*args): threading.Thread(target=send_event_email_notification, args=args).start()
+def trigger_report_email(*args): threading.Thread(target=send_report_email_notification, args=args).start()
 
 def push_notification(title: str, body: str):
     st.session_state["_notif_title"], st.session_state["_notif_body"] = title, body
@@ -484,23 +535,45 @@ else:
             for t in tasks:
                 due_label = f"| Son: {t.due_date}" if t.due_date else ""
                 st.markdown(f'<div class="task-card"><div class="task-title">{t.title}</div><div class="task-meta">{t.description}</div><div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:4px;"><span class="badge {BADGE.get(t.priority)}">{t.priority}</span> <span style="font-size:0.75rem; font-weight:800; color:#2DB5A0;">+{t.points} pts <span style="color:#94a3b8; font-weight:500;">{due_label}</span></span></div></div>', unsafe_allow_html=True)
-                col_a, col_b = st.columns([3, 2])
-                with col_a:
-                    if st.button("Tamamla", key=f"m_{t.id}", use_container_width=True):
-                        t.status = "Tamamlandı"
-                        cu.points = (cu.points or 0) + t.points; cu.lifetime_points = (cu.lifetime_points or 0) + t.points; cu.total_completed = (cu.total_completed or 0) + 1
-                        db.commit(); st.rerun()
-                with col_b:
-                    if t.due_date:
-                        ics = make_ics(t.title, t.description or "", t.due_date)
-                        st.download_button("Takvime Ekle", data=ics, file_name=f"arder_{t.id}.ics", mime="text/calendar", key=f"m_ics_{t.id}", use_container_width=True)
+                
+                # YENİ TAMAMLAMA VE RAPORLAMA EKRANI (Moderatör)
+                with st.expander("📝 Görevi Tamamla ve Raporla"):
+                    with st.form(f"rep_form_{t.id}"):
+                        if getattr(t, 'steps', ""):
+                            st.markdown("**📌 Görev Adımlarını Onaylayın:**")
+                            for i, step in enumerate(json.loads(t.steps)):
+                                st.checkbox(step, key=f"chk_{t.id}_{i}")
+                        
+                        rep_txt = st.text_area("Görev Raporu", placeholder="Neler yaptınız? Varsa yapamadığınız veya eksik kalan kısımlar nelerdir?")
+                        
+                        if st.form_submit_button("Raporu Gönder ve Tamamla", use_container_width=True):
+                            if len(rep_txt.strip()) < 3:
+                                st.error("Lütfen kısaca da olsa bir rapor yazın.")
+                            else:
+                                t.status = "Tamamlandı"
+                                t.report = rep_txt.strip()
+                                cu.points = (cu.points or 0) + t.points
+                                cu.lifetime_points = (cu.lifetime_points or 0) + t.points
+                                cu.total_completed = (cu.total_completed or 0) + 1
+                                db.commit()
+                                trigger_report_email(t.title, cu.username, t.assigned_by, rep_txt.strip())
+                                st.success("Görev ve rapor başarıyla iletildi!")
+                                time.sleep(1.5)
+                                st.rerun()
+                
+                if t.due_date:
+                    ics = make_ics(t.title, t.description or "", t.due_date)
+                    st.download_button("Takvime Ekle", data=ics, file_name=f"arder_{t.id}.ics", mime="text/calendar", key=f"m_ics_{t.id}", use_container_width=True)
 
         with t2:
             users = db.query(User).filter(User.username != cu.username).all()
             if not users: st.info("Sistemde üye yok.")
             else:
                 assigned_to = st.selectbox("Kime:", [f"{u.username} ({u.alan})" for u in users]).rsplit(" (", 1)[0]
-                tt, td = st.text_input("Başlık"), st.text_area("Detaylar", height=80)
+                tt = st.text_input("Başlık")
+                td = st.text_area("Detaylar (Görevin Genel Amacı)", height=60)
+                t_steps = st.text_area("Görev Adımları (İsteğe bağlı. Her satıra 1 adım yazın)", height=100)
+                
                 c1, c2 = st.columns(2)
                 with c1: tp = st.selectbox("Öncelik", ["Acil","Yüksek","Orta","Düşük"])
                 with c2: tpts = st.number_input("Puan", min_value=1, value=10)
@@ -513,16 +586,28 @@ else:
                         if target_u: target_u.total_assigned = (target_u.total_assigned or 0) + 1 
                         
                         formatted_t_due = t_due.strftime("%d.%m.%Y")
-                        db.add(Task(assigned_to=assigned_to, assigned_by=cu.username, title=tt, description=td, priority=tp, points=tpts, status="Bekliyor", due_date=formatted_t_due))
+                        steps_str = json.dumps([s.strip() for s in t_steps.split('\n') if s.strip()]) if t_steps.strip() else ""
+                        
+                        db.add(Task(assigned_to=assigned_to, assigned_by=cu.username, title=tt, description=td, steps=steps_str, priority=tp, points=tpts, status="Bekliyor", due_date=formatted_t_due))
                         db.commit()
                         if target_u and target_u.email: trigger_background_email(target_u.email, target_u.username, tt, td, tp, tpts, formatted_t_due)
-                        st.success("Gönderildi!")
+                        st.success("Görev ve adımlar başarıyla gönderildi!")
+
         with t3:
             all_t = db.query(Task).order_by(Task.id.desc()).limit(50).all()
             for t in all_t:
                 status_color = "color:#2DB5A0;" if t.status == "Tamamlandı" else "color:#ef4444;" if t.status == "İptal Edildi" else "color:#eab308;"
                 with st.expander(f"{t.title} -> {t.assigned_to}"):
                     st.markdown(f"**Puan:** {t.points} | **Veren:** {t.assigned_by} | <span style='{status_color}'>**Durum:** {t.status}</span><br><br>{t.description}", unsafe_allow_html=True)
+                    
+                    if getattr(t, 'steps', ""):
+                        st.markdown("**Adımlar:**")
+                        for s in json.loads(t.steps):
+                            st.write(f"- {s}")
+                    
+                    if getattr(t, 'report', ""):
+                        st.info(f"**Kullanıcı Raporu:**\n{t.report}")
+                        
                     if t.status != "İptal Edildi":
                         st.markdown("<div class='btn-danger'>", unsafe_allow_html=True)
                         if st.button("İptal Et", key=f"c_{t.id}"):
@@ -580,22 +665,44 @@ else:
             for t in tasks:
                 due_label = f"| Son: {t.due_date}" if t.due_date else ""
                 st.markdown(f'<div class="task-card"><div class="task-title">{t.title}</div><div class="task-meta">{t.description}</div><div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:4px;"><span class="badge {BADGE.get(t.priority)}">{t.priority}</span> <span style="font-size:0.75rem; font-weight:800; color:#2DB5A0;">+{t.points} pts <span style="color:#94a3b8; font-weight:500;">{due_label}</span></span></div></div>', unsafe_allow_html=True)
-                col_a, col_b = st.columns([3, 2])
-                with col_a:
-                    if st.button("Tamamla", key=f"bb_{t.id}", use_container_width=True):
-                        t.status = "Tamamlandı"
-                        cu.points = (cu.points or 0) + t.points; cu.lifetime_points = (cu.lifetime_points or 0) + t.points; cu.total_completed = (cu.total_completed or 0) + 1
-                        db.commit(); st.rerun()
-                with col_b:
-                    if t.due_date:
-                        ics = make_ics(t.title, t.description or "", t.due_date)
-                        st.download_button("Takvime Ekle", data=ics, file_name=f"arder_{t.id}.ics", mime="text/calendar", key=f"bb_ics_{t.id}", use_container_width=True)
+                
+                # YENİ TAMAMLAMA VE RAPORLAMA EKRANI (Birim Başkanı)
+                with st.expander("📝 Görevi Tamamla ve Raporla"):
+                    with st.form(f"rep_form_{t.id}"):
+                        if getattr(t, 'steps', ""):
+                            st.markdown("**📌 Görev Adımlarını Onaylayın:**")
+                            for i, step in enumerate(json.loads(t.steps)):
+                                st.checkbox(step, key=f"chk_{t.id}_{i}")
+                        
+                        rep_txt = st.text_area("Görev Raporu", placeholder="Neler yaptınız? Varsa yapamadığınız veya eksik kalan kısımlar nelerdir?")
+                        
+                        if st.form_submit_button("Raporu Gönder ve Tamamla", use_container_width=True):
+                            if len(rep_txt.strip()) < 3:
+                                st.error("Lütfen kısaca da olsa bir rapor yazın.")
+                            else:
+                                t.status = "Tamamlandı"
+                                t.report = rep_txt.strip()
+                                cu.points = (cu.points or 0) + t.points
+                                cu.lifetime_points = (cu.lifetime_points or 0) + t.points
+                                cu.total_completed = (cu.total_completed or 0) + 1
+                                db.commit()
+                                trigger_report_email(t.title, cu.username, t.assigned_by, rep_txt.strip())
+                                st.success("Görev ve rapor başarıyla iletildi!")
+                                time.sleep(1.5)
+                                st.rerun()
+
+                if t.due_date:
+                    ics = make_ics(t.title, t.description or "", t.due_date)
+                    st.download_button("Takvime Ekle", data=ics, file_name=f"arder_{t.id}.ics", mime="text/calendar", key=f"bb_ics_{t.id}", use_container_width=True)
         with t2:
             members = db.query(User).filter(User.role == "Üye").all()
             if not members: st.info("Sistemde üye yok.")
             else:
                 assigned_to = st.selectbox("Kime:", [f"{u.username} ({u.alan})" for u in members]).rsplit(" (", 1)[0]
-                tt, td = st.text_input("Başlık"), st.text_area("Detaylar")
+                tt = st.text_input("Başlık")
+                td = st.text_area("Detaylar (Görevin Genel Amacı)", height=60)
+                t_steps = st.text_area("Görev Adımları (İsteğe bağlı. Her satıra 1 adım yazın)", height=100)
+                
                 c1, c2 = st.columns(2)
                 with c1: tp = st.selectbox("Öncelik", ["Acil","Yüksek","Orta","Düşük"])
                 with c2: tpts = st.number_input("Puan", min_value=1, value=10)
@@ -608,10 +715,12 @@ else:
                         if target_u: target_u.total_assigned = (target_u.total_assigned or 0) + 1 
                         
                         formatted_t_due = t_due.strftime("%d.%m.%Y")
-                        db.add(Task(assigned_to=assigned_to, assigned_by=cu.username, title=tt, description=td, priority=tp, points=tpts, status="Bekliyor", due_date=formatted_t_due))
+                        steps_str = json.dumps([s.strip() for s in t_steps.split('\n') if s.strip()]) if t_steps.strip() else ""
+                        
+                        db.add(Task(assigned_to=assigned_to, assigned_by=cu.username, title=tt, description=td, steps=steps_str, priority=tp, points=tpts, status="Bekliyor", due_date=formatted_t_due))
                         db.commit()
                         if target_u and target_u.email: trigger_background_email(target_u.email, target_u.username, tt, td, tp, tpts, formatted_t_due)
-                        st.success("Gönderildi!")
+                        st.success("Görev ve adımlar başarıyla gönderildi!")
         with t3:
             st.markdown("### Ekibinizin Karneleri")
             for u in db.query(User).filter(User.role == "Üye").all():
@@ -628,9 +737,18 @@ else:
                                     overdue += 1
                             except: pass
                     st.markdown(f"**Verilen İş:** {assigned} | **Yapılan:** {completed} | **Geciken:** <span style='color:#ef4444;'>{overdue}</span> | **Tüm Puan:** ⭐ {u.lifetime_points or 0}", unsafe_allow_html=True)
+            
             st.divider(); st.markdown("### Verdiğiniz Görevlerin Durumu")
             for t in db.query(Task).filter(Task.assigned_by==cu.username).order_by(Task.id.desc()).limit(20).all():
-                st.markdown(f"<div style='background:#fff; padding:12px; border-radius:16px; margin-bottom:8px; font-weight:700;'>{t.title} <span style='font-size:11px; color:#64748b;'>-> {t.assigned_to} ({t.status})</span></div>", unsafe_allow_html=True)
+                with st.expander(f"{t.title} -> {t.assigned_to} ({t.status})"):
+                    if getattr(t, 'steps', ""):
+                        st.markdown("**Adımlar:**")
+                        for s in json.loads(t.steps):
+                            st.write(f"- {s}")
+                    st.markdown(f"**Açıklama:** {t.description}")
+                    if getattr(t, 'report', ""):
+                        st.success(f"**Gelen Rapor:**\n{t.report}")
+
         with t4: render_events_tab(is_admin=True)
         with t5: render_leaderboard(db)
         with t6: render_profile_tab()
@@ -644,19 +762,41 @@ else:
             for t in tasks:
                 due_label = f"| Son: {t.due_date}" if t.due_date else ""
                 st.markdown(f'<div class="task-card"><div class="task-title">{t.title}</div><div class="task-meta">{t.description}</div><div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:4px;"><span class="badge {BADGE.get(t.priority)}">{t.priority}</span> <span style="font-size:0.75rem; font-weight:800; color:#2DB5A0;">+{t.points} pts <span style="color:#94a3b8; font-weight:500;">{due_label}</span></span></div></div>', unsafe_allow_html=True)
-                col_a, col_b = st.columns([3, 2])
-                with col_a:
-                    if st.button("Tamamla", key=f"u_{t.id}", use_container_width=True):
-                        t.status = "Tamamlandı"
-                        cu.points = (cu.points or 0) + t.points; cu.lifetime_points = (cu.lifetime_points or 0) + t.points; cu.total_completed = (cu.total_completed or 0) + 1
-                        db.commit(); st.rerun()
-                with col_b:
-                    if t.due_date:
-                        ics = make_ics(t.title, t.description or "", t.due_date)
-                        st.download_button("Takvime Ekle", data=ics, file_name=f"arder_{t.id}.ics", mime="text/calendar", key=f"ics_{t.id}", use_container_width=True)
+                
+                # YENİ TAMAMLAMA VE RAPORLAMA EKRANI (Üye)
+                with st.expander("📝 Görevi Tamamla ve Raporla"):
+                    with st.form(f"rep_form_{t.id}"):
+                        if getattr(t, 'steps', ""):
+                            st.markdown("**📌 Görev Adımlarını Onaylayın:**")
+                            for i, step in enumerate(json.loads(t.steps)):
+                                st.checkbox(step, key=f"chk_{t.id}_{i}")
+                        
+                        rep_txt = st.text_area("Görev Raporu", placeholder="Neler yaptınız? Varsa yapamadığınız veya eksik kalan kısımlar nelerdir?")
+                        
+                        if st.form_submit_button("Raporu Gönder ve Tamamla", use_container_width=True):
+                            if len(rep_txt.strip()) < 3:
+                                st.error("Lütfen kısaca da olsa bir rapor yazın.")
+                            else:
+                                t.status = "Tamamlandı"
+                                t.report = rep_txt.strip()
+                                cu.points = (cu.points or 0) + t.points
+                                cu.lifetime_points = (cu.lifetime_points or 0) + t.points
+                                cu.total_completed = (cu.total_completed or 0) + 1
+                                db.commit()
+                                trigger_report_email(t.title, cu.username, t.assigned_by, rep_txt.strip())
+                                st.success("Görev ve rapor başarıyla iletildi!")
+                                time.sleep(1.5)
+                                st.rerun()
+
+                if t.due_date:
+                    ics = make_ics(t.title, t.description or "", t.due_date)
+                    st.download_button("Takvime Ekle", data=ics, file_name=f"arder_{t.id}.ics", mime="text/calendar", key=f"ics_{t.id}", use_container_width=True)
         with t2:
             done_tasks = db.query(Task).filter(Task.assigned_to==cu.username, Task.status=="Tamamlandı").order_by(Task.id.desc()).limit(20).all()
-            for t in done_tasks: st.markdown(f'<div class="task-card done"><div class="task-title">✓ {t.title}</div><div class="task-meta" style="color:#2DB5A0; font-weight:700;">+{t.points} puan eklendi</div></div>', unsafe_allow_html=True)
+            for t in done_tasks: 
+                st.markdown(f'<div class="task-card done" style="margin-bottom:0.5rem;"><div class="task-title">✓ {t.title}</div><div class="task-meta" style="color:#2DB5A0; font-weight:700;">+{t.points} puan eklendi</div></div>', unsafe_allow_html=True)
+                if getattr(t, 'report', ""):
+                    st.markdown(f"<div style='font-size:0.8rem; color:#64748b; padding:10px; background:#f8fafc; border-radius:10px; margin-top:-10px; margin-bottom:1rem;'><b>Raporunuz:</b><br>{t.report}</div>", unsafe_allow_html=True)
         with t3: render_events_tab(is_admin=False)
         with t4: render_leaderboard(db)
         with t5: render_profile_tab()
