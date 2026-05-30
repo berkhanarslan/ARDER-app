@@ -120,7 +120,7 @@ class Task(Base):
     description = Column(String)
     priority = Column(String)
     points = Column(Integer, default=10)
-    earned_points = Column(Integer, default=0) # YENİ: Başarıya göre kazanılan puan
+    earned_points = Column(Integer, default=0) 
     status = Column(String, default="Bekliyor") 
     due_date = Column(String, default="")
     steps = Column(String, default="")
@@ -640,7 +640,8 @@ else:
             
             st.divider()
             st.markdown("### 📋 Geçmiş Görev Kayıtları")
-            for t in all_t:
+            # HATA DÜZELTİLDİ: all_t yerine all_tasks_db üzerinden döngü yapılıyor
+            for t in all_tasks_db:
                 status_color = "color:#2DB5A0;" if t.status == "Tamamlandı" else "color:#ef4444;" if t.status == "İptal Edildi" else "color:#eab308;"
                 with st.expander(f"{t.title} -> {t.assigned_to}"):
                     st.markdown(f"**Veren:** {t.assigned_by} | <span style='{status_color}'>**Durum:** {t.status}</span><br>**Açıklama:** {t.description}", unsafe_allow_html=True)
