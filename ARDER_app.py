@@ -489,15 +489,6 @@ else:
                         if st.form_submit_button("Duyuruyu Yayınla", use_container_width=True):
                             db.add(Announcement(title=a_title, content=a_content, date=datetime.now().strftime("%d.%m.%Y"), author=cu.username))
                             db.commit(); st.success("Yayınlandı!"); time.sleep(1); st.rerun()
-                with tab_k:
-                    with st.form("new_part"):
-                        p_name = st.text_input("Kurum Adı (Örn: Pamuk Kafe)")
-                        p_disc = st.text_input("İndirim/Fırsat (Örn: %15 İndirim)")
-                        p_det = st.text_area("Detaylar")
-                        p_icon = st.text_input("İkon (Emoji olarak, Örn: ☕)", value="🏪")
-                        if st.form_submit_button("Kurumu Ekle", use_container_width=True):
-                            db.add(Partner(name=p_name, discount=p_disc, details=p_det, icon=p_icon))
-                            db.commit(); st.success("Eklendi!"); time.sleep(1); st.rerun()
 
             st.markdown("### 👑 Yönetici Paneli")
             with st.expander("➕ Yeni Etkinlik Duyurusu Oluştur"):
