@@ -72,7 +72,6 @@ def get_static_assets():
     [data-testid="stTabs"] button {{ padding-bottom: 10px !important; font-weight: 600 !important; font-size: 13px !important; }}
     [data-testid="stTabs"] button[aria-selected="true"] {{ color:#2DB5A0 !important; border-bottom: 3px solid #2DB5A0 !important; font-weight: 800 !important; }}
     
-    /* YENİ MOBİL UYGULAMA CSS'LERİ - ÇİFT SÜSLÜ PARANTEZ İLE KORUNMUŞTUR */
     .section-title {{ font-size: 15px; font-weight: 900; color: #1A2744; margin: 1.5rem 0 0.8rem 0; padding-left: 5px; }}
     .grid-container {{ display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 1rem; }}
     .grid-item {{ background: #fff; padding: 15px; border-radius: 20px; text-align: left; box-shadow: 0 4px 12px rgba(0,0,0,0.03); border: 1px solid #f1f5f9; }}
@@ -93,14 +92,6 @@ def get_static_assets():
     .b-name {{ font-weight: 800; color: #1A2744; font-size: 14px; margin-bottom: 2px; }}
     .b-title {{ font-size: 11px; color: #64748b; font-weight: 600; }}
 
-    .partner-card {{ display:flex; align-items:flex-start; background: #fff; border-radius: 18px; padding: 15px; margin-bottom: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.03); border-left: 4px solid #2DB5A0; }}
-    .p-icon {{ font-size: 30px; margin-right: 15px; background: #f8fafc; padding: 10px; border-radius: 14px; }}
-    .p-info {{ flex: 1; }}
-    .p-header {{ display: flex; align-items: center; justify-content: space-between; margin-bottom: 4px; }}
-    .p-name {{ font-weight: 900; font-size: 15px; color: #1A2744; }}
-    .p-badge {{ background: #ccfbf1; color: #0f766e; padding: 4px 8px; border-radius: 8px; font-size: 10px; font-weight: 800; }}
-    .p-desc {{ font-size: 12px; color: #64748b; line-height: 1.4; }}
-    
     .ann-card {{ background: linear-gradient(to right, #f8fafc, #ffffff); border-left: 4px solid #f59e0b; padding: 15px; border-radius: 16px; margin-bottom: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.02); }}
     .a-title {{ font-weight: 800; color: #1A2744; font-size: 14px; margin-bottom: 6px; }}
     .a-date {{ font-size: 10px; color: #94a3b8; font-weight: 700; margin-bottom: 8px; display:inline-block; background:#fff; padding:2px 8px; border-radius:10px; border:1px solid #e2e8f0; }}
@@ -111,7 +102,6 @@ def get_static_assets():
 STATIC_HTML, LOGO_HTML, LOGIN_LOGO_HTML = get_static_assets()
 st.markdown(STATIC_HTML, unsafe_allow_html=True)
 components.html("<script>if ('Notification' in window && Notification.permission === 'default') { Notification.requestPermission(); }</script>", height=0)
-
 
 # ══════════════════════════════════════════════════════════
 # 3. VERİTABANI BAĞLANTISI VE MODELLER
@@ -139,6 +129,7 @@ class User(Base):
     email = Column(String, default="") 
     role = Column(String) 
     alan = Column(String, default="Belirtilmedi")
+    avatar = Column(String, default="") # YENİ: Profil Fotoğrafı Alanı
     points = Column(Integer, default=0)
     lifetime_points = Column(Integer, default=0)
     total_assigned = Column(Integer, default=0)
@@ -175,7 +166,6 @@ class EventRSVP(Base):
     status = Column(String)
     reason = Column(String)
 
-# YENİ MODELLER: Duyuru ve Kurumlar
 class Announcement(Base):
     __tablename__ = "announcements"
     id = Column(Integer, primary_key=True, index=True)
@@ -202,6 +192,7 @@ def init_db():
                 "ALTER TABLE tasks ADD COLUMN IF NOT EXISTS earned_points INTEGER DEFAULT 0;",
                 "ALTER TABLE users ADD COLUMN IF NOT EXISTS alan VARCHAR DEFAULT 'Belirtilmedi';",
                 "ALTER TABLE users ADD COLUMN IF NOT EXISTS email VARCHAR DEFAULT '';",
+                "ALTER TABLE users ADD COLUMN IF NOT EXISTS avatar VARCHAR DEFAULT '';",
                 "ALTER TABLE tasks ADD COLUMN IF NOT EXISTS due_date VARCHAR DEFAULT '';",
                 "ALTER TABLE tasks ADD COLUMN IF NOT EXISTS steps VARCHAR DEFAULT '';",
                 "ALTER TABLE tasks ADD COLUMN IF NOT EXISTS report VARCHAR DEFAULT '';",
@@ -215,17 +206,6 @@ def init_db():
             ]:
                 try: conn.execute(text(stmt)); conn.commit()
                 except: pass
-                
-        # Fırsatlar tablosu boşsa örnek doldur
-        db_s = SessionLocal()
-        if not db_s.query(Partner).first():
-            db_s.add_all([
-                Partner(name="Pamuk Kafe", discount="%15 İndirim", details="Tüm sıcak ve soğuk içeceklerde ile tatlılarda geçerlidir.", icon="☕"),
-                Partner(name="Sushiyto", discount="%10 İndirim", details="Dernek kimliği ibrazında tüm sushi menülerinde indirim.", icon="🍣"),
-                Partner(name="Ünal Balık", discount="Ücretsiz İkram", details="Yemek sonrası dernek üyelerine ücretsiz içecek ve tatlı ikramı.", icon="🐟")
-            ])
-            db_s.commit()
-        db_s.close()
     except: pass 
 
 init_db()
@@ -453,18 +433,45 @@ else:
         for a in announcements:
             st.markdown(f'<div class="ann-card"><div class="a-title">{a.title}</div><div class="a-date">{a.date} - {a.author}</div><div class="a-content">{a.content}</div></div>', unsafe_allow_html=True)
 
+        # SIRALI VE RESİMLİ YÖNETİM KURULU VİTRİNİ
         st.markdown('<div class="section-title">👔 Yönetim Kurulu</div>', unsafe_allow_html=True)
-        board_members = db_session.query(User).filter(User.role == "Moderatör").all()
+        board_order = ["Başkan", "Başkan Yardımcısı", "Genel Sekreter", "Sayman"]
+        board_members = db_session.query(User).filter(User.alan.in_(board_order)).all()
+        board_members.sort(key=lambda x: board_order.index(x.alan))
+        
         for bm in board_members:
-            st.markdown(f'<div class="board-card"><div class="b-avatar">{bm.username[0].upper()}</div><div><div class="b-name">{bm.username}</div><div class="b-title">{bm.alan}</div></div></div>', unsafe_allow_html=True)
+            if bm.avatar:
+                avatar_html = f'<img src="{bm.avatar}" style="width: 44px; height: 44px; border-radius: 14px; margin-right: 15px; flex-shrink: 0; object-fit: cover; box-shadow: 0 4px 10px rgba(45,181,160,0.2);">'
+            else:
+                avatar_html = f'<div class="b-avatar">{bm.username[0].upper()}</div>'
+                
+            st.markdown(f'<div class="board-card">{avatar_html}<div><div class="b-name">{bm.username}</div><div class="b-title">{bm.alan}</div></div></div>', unsafe_allow_html=True)
 
         st.markdown('<div class="section-title">🏆 Liderlik Tablosu</div>', unsafe_allow_html=True)
         render_leaderboard(db_session)
 
     def render_profile_tab():
         st.markdown("<br>", unsafe_allow_html=True)
-        st.markdown(f'<div style="text-align:center; padding: 2rem; background:#fff; border-radius: 24px; box-shadow: 0 4px 20px rgba(0,0,0,0.03); border: 1px solid #f8fafc;"><div style="font-size: 60px; margin-bottom: 10px;">👤</div><h2 style="color:#1A2744; margin:0; font-weight:900;">{cu.username}</h2><p style="color:#64748b; font-weight:600; margin-top:5px; font-size:14px;">{cu.role} • {cu.alan or ""}</p></div>', unsafe_allow_html=True)
+        
+        # PROFIL KISMINA FOTOGRAF (AVATAR) GÖSTERİMİ
+        avatar_html = f'<img src="{cu.avatar}" style="width:100px; height:100px; border-radius:50%; object-fit:cover; margin-bottom:10px;">' if cu.avatar else '<div style="font-size: 60px; margin-bottom: 10px;">👤</div>'
+        st.markdown(f'<div style="text-align:center; padding: 2rem; background:#fff; border-radius: 24px; box-shadow: 0 4px 20px rgba(0,0,0,0.03); border: 1px solid #f8fafc;">{avatar_html}<h2 style="color:#1A2744; margin:0; font-weight:900;">{cu.username}</h2><p style="color:#64748b; font-weight:600; margin-top:5px; font-size:14px;">{cu.role} • {cu.alan or ""}</p></div>', unsafe_allow_html=True)
+        
         st.markdown("<br>", unsafe_allow_html=True)
+        
+        # PROFIL FOTOĞRAFI YÜKLEME ALANI
+        with st.expander("📷 Profil Fotoğrafını Değiştir"):
+            uploaded_file = st.file_uploader("Bir fotoğraf seçin", type=["jpg", "jpeg", "png"])
+            if uploaded_file is not None:
+                if st.button("Fotoğrafı Kaydet", use_container_width=True):
+                    base64_img = base64.b64encode(uploaded_file.read()).decode("utf-8")
+                    mime_type = "image/png" if uploaded_file.name.lower().endswith(".png") else "image/jpeg"
+                    cu.avatar = f"data:{mime_type};base64,{base64_img}"
+                    db.commit()
+                    st.success("Profil fotoğrafı başarıyla güncellendi!")
+                    time.sleep(1)
+                    st.rerun()
+
         st.markdown("<div class='btn-danger'>", unsafe_allow_html=True)
         if st.button("Sistemden Çıkış Yap", use_container_width=True):
             controller.remove('arder_user'); st.session_state.update({"logged_in": False, "username": "", "role": ""}); st.rerun()
