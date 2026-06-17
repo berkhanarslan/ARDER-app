@@ -219,10 +219,7 @@ def init_db():
         db_s = SessionLocal()
         if not db_s.query(Partner).first():
             db_s.add_all([
-                Partner(name="Pamuk Kafe", discount="%15 İndirim", details="Tüm sıcak ve soğuk içeceklerde ile tatlılarda geçerlidir.", icon="☕"),
-                Partner(name="Sushiyto", discount="%10 İndirim", details="Dernek kimliği ibrazında tüm sushi menülerinde indirim.", icon="🍣"),
-                Partner(name="Ünal Balık", discount="Ücretsiz İkram", details="Yemek sonrası dernek üyelerine ücretsiz içecek ve tatlı ikramı.", icon="🐟")
-            ])
+                ])
             db_s.commit()
         db_s.close()
     except: pass 
