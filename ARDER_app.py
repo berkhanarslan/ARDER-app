@@ -50,6 +50,7 @@ def get_static_assets():
     div[data-baseweb="input"] > div, div[data-baseweb="textarea"] > div, div[data-baseweb="select"] > div {{ border-radius: 20px !important; border: 1px solid #e2e8f0 !important; background-color: #ffffff !important; box-shadow: inset 0 2px 4px rgba(0,0,0,0.02) !important; }}
     div.stButton>button {{ border-radius: 30px !important; font-weight: 700 !important; padding: 0.6rem 1rem !important; border: none !important; transition: all 0.3s ease; }}
     div.stButton>button:first-child {{ background: linear-gradient(135deg, #1976D2, #2DB5A0) !important; color: #fff !important; box-shadow: 0 4px 14px rgba(45, 181, 160, 0.3) !important; }}
+    div.stButton>button:hover {{ transform: translateY(-2px); box-shadow: 0 6px 20px rgba(45, 181, 160, 0.4) !important; }}
     .btn-danger>button {{ background: linear-gradient(135deg, #ef4444, #dc2626) !important; color: #fff !important; box-shadow: 0 4px 14px rgba(239, 68, 68, 0.3) !important; }}
     .btn-secondary>button {{ background: linear-gradient(135deg, #94a3b8, #64748b) !important; color: #fff !important; box-shadow: 0 4px 14px rgba(100, 116, 139, 0.3) !important; }}
     .app-header {{ background: #ffffff; border-radius: 24px; padding: 1rem 1.2rem; margin-bottom: 1rem; display: flex; align-items: center; gap: 0.8rem; box-shadow: 0 4px 20px rgba(0,0,0,0.04); }}
@@ -219,7 +220,10 @@ def init_db():
         db_s = SessionLocal()
         if not db_s.query(Partner).first():
             db_s.add_all([
-                ])
+                Partner(name="Pamuk Kafe", discount="%15 İndirim", details="Tüm sıcak ve soğuk içeceklerde ile tatlılarda geçerlidir.", icon="☕"),
+                Partner(name="Sushiyto", discount="%10 İndirim", details="Dernek kimliği ibrazında tüm sushi menülerinde indirim.", icon="🍣"),
+                Partner(name="Ünal Balık", discount="Ücretsiz İkram", details="Yemek sonrası dernek üyelerine ücretsiz içecek ve tatlı ikramı.", icon="🐟")
+            ])
             db_s.commit()
         db_s.close()
     except: pass 
@@ -349,8 +353,8 @@ def generate_leaderboard_html(users_dict):
     html += "</div></body></html>"
     return html
 
-def render_leaderboard(db):
-    users = db.query(User).order_by(User.points.desc()).all()
+def render_leaderboard(db_session):
+    users = db_session.query(User).order_by(User.points.desc()).all()
     u_dict = [{"username": u.username, "points": u.points, "role": u.role, "alan": u.alan or "—"} for u in users]
     components.html(generate_leaderboard_html(u_dict), height=650, scrolling=True)
 
@@ -430,8 +434,8 @@ else:
     BADGE = {"Acil":"badge-acil","Yüksek":"badge-yuksek","Orta":"badge-orta","Düşük":"badge-dusuk"}
 
     # --- YENİ ANA EKRAN (DASHBOARD) ---
-    def render_home_tab():
-        pending = db.query(Task).filter(Task.assigned_to==cu.username, Task.status=="Bekliyor").count()
+    def render_home_tab(db_session):
+        pending = db_session.query(Task).filter(Task.assigned_to==cu.username, Task.status=="Bekliyor").count()
         
         st.markdown("""
         <div class="grid-container">
@@ -443,31 +447,19 @@ else:
         """.format(pending, cu.points, cu.lifetime_points or 0, cu.total_completed or 0), unsafe_allow_html=True)
 
         st.markdown('<div class="section-title">📢 Panodaki Duyurular</div>', unsafe_allow_html=True)
-        announcements = db.query(Announcement).order_by(Announcement.id.desc()).limit(3).all()
+        announcements = db_session.query(Announcement).order_by(Announcement.id.desc()).limit(3).all()
         if not announcements:
             st.info("Henüz bir duyuru bulunmuyor.")
         for a in announcements:
             st.markdown(f'<div class="ann-card"><div class="a-title">{a.title}</div><div class="a-date">{a.date} - {a.author}</div><div class="a-content">{a.content}</div></div>', unsafe_allow_html=True)
 
         st.markdown('<div class="section-title">👔 Yönetim Kurulu</div>', unsafe_allow_html=True)
-        board_members = db.query(User).filter(User.role == "Moderatör").all()
+        board_members = db_session.query(User).filter(User.role == "Moderatör").all()
         for bm in board_members:
             st.markdown(f'<div class="board-card"><div class="b-avatar">{bm.username[0].upper()}</div><div><div class="b-name">{bm.username}</div><div class="b-title">{bm.alan}</div></div></div>', unsafe_allow_html=True)
 
-        st.markdown('<div class="section-title">🤝 Anlaşmalı Kurumlar & Fırsatlar</div>', unsafe_allow_html=True)
-        partners = db.query(Partner).all()
-        if not partners:
-            st.info("Kayıtlı kurum bulunamadı.")
-        for p in partners:
-            st.markdown(f"""
-            <div class="partner-card">
-                <div class="p-icon">{p.icon}</div>
-                <div class="p-info">
-                    <div class="p-header"><div class="p-name">{p.name}</div><div class="p-badge">{p.discount}</div></div>
-                    <div class="p-desc">{p.details}</div>
-                </div>
-            </div>
-            """, unsafe_allow_html=True)
+        st.markdown('<div class="section-title">🏆 Liderlik Tablosu</div>', unsafe_allow_html=True)
+        render_leaderboard(db_session)
 
     def render_profile_tab():
         st.markdown("<br>", unsafe_allow_html=True)
@@ -489,6 +481,15 @@ else:
                         if st.form_submit_button("Duyuruyu Yayınla", use_container_width=True):
                             db.add(Announcement(title=a_title, content=a_content, date=datetime.now().strftime("%d.%m.%Y"), author=cu.username))
                             db.commit(); st.success("Yayınlandı!"); time.sleep(1); st.rerun()
+                with tab_k:
+                    with st.form("new_part"):
+                        p_name = st.text_input("Kurum Adı (Örn: Pamuk Kafe)")
+                        p_disc = st.text_input("İndirim/Fırsat (Örn: %15 İndirim)")
+                        p_det = st.text_area("Detaylar")
+                        p_icon = st.text_input("İkon (Emoji olarak, Örn: ☕)", value="🏪")
+                        if st.form_submit_button("Kurumu Ekle", use_container_width=True):
+                            db.add(Partner(name=p_name, discount=p_disc, details=p_det, icon=p_icon))
+                            db.commit(); st.success("Eklendi!"); time.sleep(1); st.rerun()
 
             st.markdown("### 👑 Yönetici Paneli")
             with st.expander("➕ Yeni Etkinlik Duyurusu Oluştur"):
@@ -534,7 +535,6 @@ else:
                 my_rsvp = db.query(EventRSVP).filter(EventRSVP.event_id == e.id, EventRSVP.username == cu.username).first()
                 d_day, d_month = format_event_date(e.event_date)
                 
-                # YENİ TASARIM ETKİNLİK KARTI
                 st.markdown(f"""
                 <div class="event-v2">
                     <div class="e-date"><div class="e-day">{d_day}</div><div class="e-month">{d_month}</div></div>
@@ -559,8 +559,8 @@ else:
 
     # ── ROL BAZLI SEKME DAĞILIMI (MOBİL UYUMLU İKONLARLA) ──
     if cu.role == "Moderatör":
-        t1, t2, t3, t4, t5, t6, t7 = st.tabs(["🏠 Ana", "📝 Görevler", "🎯 Ata", "⚙️ Yönet", "👥 Üye", "📅 Pano", "👤 Profil"])
-        with t1: render_home_tab()
+        t1, t2, t3, t4, t5, t6, t7 = st.tabs(["🏠 Ana", "📝 Görev", "🎯 Ata", "⚙️ Yönet", "👥 Üye", "📅 Pano", "👤 Profil"])
+        with t1: render_home_tab(db)
         with t2:
             tasks = db.query(Task).filter(Task.assigned_to==cu.username, Task.status=="Bekliyor").all()
             if not tasks: st.markdown('<div style="text-align:center;padding:3rem;"><div style="font-size:40px; margin-bottom:10px;">✨</div><b style="color:#1A2744;">Bekleyen göreviniz bulunmuyor.</b></div>', unsafe_allow_html=True)
@@ -695,13 +695,12 @@ else:
             st.markdown("<div class='btn-danger'>", unsafe_allow_html=True)
             if st.button("Sistemi Sıfırla (Karneler Silinmez)", use_container_width=True): db.query(Task).delete(); db.query(User).update({User.points: 0}); db.commit(); st.rerun()
             st.markdown("</div>", unsafe_allow_html=True)
-            st.markdown("### 🏆 Liderlik Tablosu"); render_leaderboard(db)
         with t6: render_pano_tab(is_admin=True)
         with t7: render_profile_tab()
 
     elif cu.role == "Birim Başkanı":
-        t1, t2, t3, t4, t5, t6 = st.tabs(["🏠 Ana", "📝 Görevler", "🎯 Ata", "⚙️ Takip", "📅 Pano", "👤 Profil"])
-        with t1: render_home_tab()
+        t1, t2, t3, t4, t5, t6 = st.tabs(["🏠 Ana", "📝 Görev", "🎯 Ata", "⚙️ Takip", "📅 Pano", "👤 Profil"])
+        with t1: render_home_tab(db)
         with t2:
             tasks = db.query(Task).filter(Task.assigned_to==cu.username, Task.status=="Bekliyor").all()
             if not tasks: st.markdown('<div style="text-align:center;padding:3rem;"><div style="font-size:40px; margin-bottom:10px;">✨</div><b style="color:#1A2744;">Bekleyen göreviniz bulunmuyor.</b></div>', unsafe_allow_html=True)
@@ -797,13 +796,12 @@ else:
                 with st.expander(f"{t.title} -> {t.assigned_to} ({t.status})"):
                     st.markdown(f"**Açıklama:** {t.description}"); 
                     if getattr(t, 'report', ""): st.info(t.report)
-            st.divider(); st.markdown("### 🏆 Liderlik Tablosu"); render_leaderboard(db)
         with t5: render_pano_tab(is_admin=True)
         with t6: render_profile_tab()
 
     else:
-        t1, t2, t3, t4, t5 = st.tabs(["🏠 Ana", "📝 Görevler", "📋 Geçmiş", "📅 Pano", "👤 Profil"])
-        with t1: render_home_tab()
+        t1, t2, t3, t4, t5 = st.tabs(["🏠 Ana", "📝 Görev", "📋 Geçmiş", "📅 Pano", "👤 Profil"])
+        with t1: render_home_tab(db)
         with t2:
             tasks = db.query(Task).filter(Task.assigned_to==cu.username, Task.status=="Bekliyor").all()
             if not tasks: st.markdown('<div style="text-align:center;padding:3rem;"><div style="font-size:40px; margin-bottom:10px;">✨</div><b style="color:#1A2744;">Bekleyen göreviniz bulunmuyor.</b></div>', unsafe_allow_html=True)
@@ -846,7 +844,6 @@ else:
             for t in done_tasks: 
                 st.markdown(f'<div class="task-card done" style="margin-bottom:0.5rem;"><div class="task-title">✓ {t.title}</div><div class="task-meta" style="color:#2DB5A0; font-weight:700;">Kazanılan: +{t.earned_points or t.points} / {t.points} pts</div></div>', unsafe_allow_html=True)
                 if getattr(t, 'report', ""): st.info(t.report)
-            st.divider(); st.markdown("### 🏆 Liderlik Tablosu"); render_leaderboard(db)
         with t4: render_pano_tab(is_admin=False)
         with t5: render_profile_tab()
 
