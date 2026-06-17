@@ -71,39 +71,39 @@ def get_static_assets():
     [data-testid="stTabs"] button {{ padding-bottom: 10px !important; font-weight: 600 !important; font-size: 13px !important; }}
     [data-testid="stTabs"] button[aria-selected="true"] {{ color:#2DB5A0 !important; border-bottom: 3px solid #2DB5A0 !important; font-weight: 800 !important; }}
     
-    /* YENİ MOBİL UYGULAMA CSS'LERİ */
-    .section-title { font-size: 15px; font-weight: 900; color: #1A2744; margin: 1.5rem 0 0.8rem 0; padding-left: 5px; }
-    .grid-container { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 1rem; }
-    .grid-item { background: #fff; padding: 15px; border-radius: 20px; text-align: left; box-shadow: 0 4px 12px rgba(0,0,0,0.03); border: 1px solid #f1f5f9; }
-    .grid-icon { font-size: 24px; margin-bottom: 8px; }
-    .grid-text { font-size: 12px; font-weight: 800; color: #64748b; margin-bottom: 2px; }
-    .grid-val { font-size: 20px; font-weight: 900; color: #1A2744; line-height: 1; }
+    /* YENİ MOBİL UYGULAMA CSS'LERİ - ÇİFT SÜSLÜ PARANTEZ İLE KORUNMUŞTUR */
+    .section-title {{ font-size: 15px; font-weight: 900; color: #1A2744; margin: 1.5rem 0 0.8rem 0; padding-left: 5px; }}
+    .grid-container {{ display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 1rem; }}
+    .grid-item {{ background: #fff; padding: 15px; border-radius: 20px; text-align: left; box-shadow: 0 4px 12px rgba(0,0,0,0.03); border: 1px solid #f1f5f9; }}
+    .grid-icon {{ font-size: 24px; margin-bottom: 8px; }}
+    .grid-text {{ font-size: 12px; font-weight: 800; color: #64748b; margin-bottom: 2px; }}
+    .grid-val {{ font-size: 20px; font-weight: 900; color: #1A2744; line-height: 1; }}
     
-    .event-v2 { display: flex; background: #fff; border-radius: 20px; padding: 12px; box-shadow: 0 4px 16px rgba(0,0,0,0.03); margin-bottom: 12px; align-items: center; border: 1px solid #f1f5f9; }
-    .e-date { background: #f8fafc; border-radius: 14px; padding: 12px 10px; min-width: 65px; text-align: center; border: 1px solid #e2e8f0; margin-right: 15px; }
-    .e-day { font-size: 22px; font-weight: 900; color: #1A2744; line-height: 1; }
-    .e-month { font-size: 11px; font-weight: 800; color: #2DB5A0; margin-top: 4px; text-transform: uppercase; letter-spacing: 1px;}
-    .e-info { flex: 1; }
-    .e-title { font-weight: 800; color: #1A2744; font-size: 15px; margin-bottom: 4px; }
-    .e-desc { font-size: 12px; color: #64748b; line-height: 1.4; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+    .event-v2 {{ display: flex; background: #fff; border-radius: 20px; padding: 12px; box-shadow: 0 4px 16px rgba(0,0,0,0.03); margin-bottom: 12px; align-items: center; border: 1px solid #f1f5f9; }}
+    .e-date {{ background: #f8fafc; border-radius: 14px; padding: 12px 10px; min-width: 65px; text-align: center; border: 1px solid #e2e8f0; margin-right: 15px; }}
+    .e-day {{ font-size: 22px; font-weight: 900; color: #1A2744; line-height: 1; }}
+    .e-month {{ font-size: 11px; font-weight: 800; color: #2DB5A0; margin-top: 4px; text-transform: uppercase; letter-spacing: 1px;}}
+    .e-info {{ flex: 1; }}
+    .e-title {{ font-weight: 800; color: #1A2744; font-size: 15px; margin-bottom: 4px; }}
+    .e-desc {{ font-size: 12px; color: #64748b; line-height: 1.4; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }}
     
-    .board-card { display: flex; align-items: center; background: #fff; border-radius: 16px; padding: 12px 15px; margin-bottom: 10px; box-shadow: 0 4px 12px rgba(0,0,0,0.02); border: 1px solid #f8fafc; }
-    .b-avatar { width: 44px; height: 44px; border-radius: 14px; background: linear-gradient(135deg, #1976D2, #2DB5A0); color: #fff; display: flex; align-items: center; justify-content: center; font-size: 18px; font-weight: 900; margin-right: 15px; flex-shrink: 0; box-shadow: 0 4px 10px rgba(45,181,160,0.2); }
-    .b-name { font-weight: 800; color: #1A2744; font-size: 14px; margin-bottom: 2px; }
-    .b-title { font-size: 11px; color: #64748b; font-weight: 600; }
+    .board-card {{ display: flex; align-items: center; background: #fff; border-radius: 16px; padding: 12px 15px; margin-bottom: 10px; box-shadow: 0 4px 12px rgba(0,0,0,0.02); border: 1px solid #f8fafc; }}
+    .b-avatar {{ width: 44px; height: 44px; border-radius: 14px; background: linear-gradient(135deg, #1976D2, #2DB5A0); color: #fff; display: flex; align-items: center; justify-content: center; font-size: 18px; font-weight: 900; margin-right: 15px; flex-shrink: 0; box-shadow: 0 4px 10px rgba(45,181,160,0.2); }}
+    .b-name {{ font-weight: 800; color: #1A2744; font-size: 14px; margin-bottom: 2px; }}
+    .b-title {{ font-size: 11px; color: #64748b; font-weight: 600; }}
 
-    .partner-card { display:flex; align-items:flex-start; background: #fff; border-radius: 18px; padding: 15px; margin-bottom: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.03); border-left: 4px solid #2DB5A0; }
-    .p-icon { font-size: 30px; margin-right: 15px; background: #f8fafc; padding: 10px; border-radius: 14px; }
-    .p-info { flex: 1; }
-    .p-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 4px; }
-    .p-name { font-weight: 900; font-size: 15px; color: #1A2744; }
-    .p-badge { background: #ccfbf1; color: #0f766e; padding: 4px 8px; border-radius: 8px; font-size: 10px; font-weight: 800; }
-    .p-desc { font-size: 12px; color: #64748b; line-height: 1.4; }
+    .partner-card {{ display:flex; align-items:flex-start; background: #fff; border-radius: 18px; padding: 15px; margin-bottom: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.03); border-left: 4px solid #2DB5A0; }}
+    .p-icon {{ font-size: 30px; margin-right: 15px; background: #f8fafc; padding: 10px; border-radius: 14px; }}
+    .p-info {{ flex: 1; }}
+    .p-header {{ display: flex; align-items: center; justify-content: space-between; margin-bottom: 4px; }}
+    .p-name {{ font-weight: 900; font-size: 15px; color: #1A2744; }}
+    .p-badge {{ background: #ccfbf1; color: #0f766e; padding: 4px 8px; border-radius: 8px; font-size: 10px; font-weight: 800; }}
+    .p-desc {{ font-size: 12px; color: #64748b; line-height: 1.4; }}
     
-    .ann-card { background: linear-gradient(to right, #f8fafc, #ffffff); border-left: 4px solid #f59e0b; padding: 15px; border-radius: 16px; margin-bottom: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.02); }
-    .a-title { font-weight: 800; color: #1A2744; font-size: 14px; margin-bottom: 6px; }
-    .a-date { font-size: 10px; color: #94a3b8; font-weight: 700; margin-bottom: 8px; display:inline-block; background:#fff; padding:2px 8px; border-radius:10px; border:1px solid #e2e8f0; }
-    .a-content { font-size: 13px; color: #475569; line-height: 1.5; }
+    .ann-card {{ background: linear-gradient(to right, #f8fafc, #ffffff); border-left: 4px solid #f59e0b; padding: 15px; border-radius: 16px; margin-bottom: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.02); }}
+    .a-title {{ font-weight: 800; color: #1A2744; font-size: 14px; margin-bottom: 6px; }}
+    .a-date {{ font-size: 10px; color: #94a3b8; font-weight: 700; margin-bottom: 8px; display:inline-block; background:#fff; padding:2px 8px; border-radius:10px; border:1px solid #e2e8f0; }}
+    .a-content {{ font-size: 13px; color: #475569; line-height: 1.5; }}
     </style>"""
     return html, logo_html, login_logo_html
 
