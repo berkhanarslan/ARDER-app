@@ -69,8 +69,6 @@ def get_static_assets():
     .badge {{ display:inline-block; padding:0.25rem 0.7rem; border-radius:20px; font-size:0.7rem; font-weight:700; }}
     .badge-acil {{ background:#fee2e2; color:#b91c1c; }} .badge-yuksek {{ background:#fef3c7; color:#b45309; }}
     .badge-orta {{ background:#ccfbf1; color:#0f766e; }} .badge-dusuk {{ background:#e0f2fe; color:#0369a1; }}
-    [data-testid="stTabs"] button {{ padding-bottom: 10px !important; font-weight: 600 !important; font-size: 13px !important; }}
-    [data-testid="stTabs"] button[aria-selected="true"] {{ color:#2DB5A0 !important; border-bottom: 3px solid #2DB5A0 !important; font-weight: 800 !important; }}
     
     .section-title {{ font-size: 15px; font-weight: 900; color: #1A2744; margin: 1.5rem 0 0.8rem 0; padding-left: 5px; }}
     .grid-container {{ display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 1rem; }}
@@ -96,6 +94,45 @@ def get_static_assets():
     .a-title {{ font-weight: 800; color: #1A2744; font-size: 14px; margin-bottom: 6px; }}
     .a-date {{ font-size: 10px; color: #94a3b8; font-weight: 700; margin-bottom: 8px; display:inline-block; background:#fff; padding:2px 8px; border-radius:10px; border:1px solid #e2e8f0; }}
     .a-content {{ font-size: 13px; color: #475569; line-height: 1.5; }}
+    
+    /* GRID MENÜ BUTON TASARIMLARI */
+    .menu-grid-btn > button {{
+        height: 105px !important;
+        border-radius: 18px !important;
+        display: flex !important;
+        flex-direction: column !important;
+        align-items: center !important;
+        justify-content: center !important;
+        background: #ffffff !important;
+        border: 1px solid #f1f5f9 !important;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.04) !important;
+        color: #1A2744 !important;
+        gap: 8px !important;
+        padding: 5px !important;
+    }}
+    .menu-grid-btn > button:hover {{
+        background: #f8fafc !important;
+        border-color: #2DB5A0 !important;
+        transform: translateY(-3px);
+    }}
+    .menu-grid-btn > button p {{
+        font-size: 13px !important;
+        font-weight: 800 !important;
+        margin: 0 !important;
+        white-space: pre-wrap !important;
+        text-align: center !important;
+        line-height: 1.2 !important;
+    }}
+    
+    /* Geri dön butonu */
+    .back-btn > button {{
+        background: transparent !important;
+        color: #64748b !important;
+        box-shadow: none !important;
+        border: 2px solid #e2e8f0 !important;
+        font-size: 13px !important;
+        padding: 0.4rem 1rem !important;
+    }}
     </style>"""
     return html, logo_html, login_logo_html
 
@@ -129,7 +166,7 @@ class User(Base):
     email = Column(String, default="") 
     role = Column(String) 
     alan = Column(String, default="Belirtilmedi")
-    avatar = Column(String, default="") # YENİ: Profil Fotoğrafı Alanı
+    avatar = Column(String, default="")
     points = Column(Integer, default=0)
     lifetime_points = Column(Integer, default=0)
     total_assigned = Column(Integer, default=0)
@@ -262,9 +299,35 @@ def send_event_email_notification(to_email, event_title, event_desc, event_date)
         server.starttls(); server.login(s_email, s_pass); server.send_message(msg); server.quit()
     except: pass
 
+def send_announcement_email_notification(to_email, title, content, author, date):
+    try:
+        s_email, s_pass = st.secrets.get("EMAIL_USER", ""), st.secrets.get("EMAIL_PASS", "")
+        if not s_email or not s_pass or not to_email: return False 
+        msg = MIMEMultipart()
+        msg['From'], msg['To'], msg['Subject'] = f"ARDER Sistem <{s_email}>", to_email, f"📢 Yeni Duyuru: {title}"
+        body = f"Değerli Akademik Renkler Derneği Üyesi,\n\nSisteme yeni bir duyuru eklenmiştir.\n\n📌 Başlık: {title}\n👤 Yazar: {author}\n📅 Tarih: {date}\n\nİçerik:\n{content}\n\nİyi çalışmalar dileriz,\nAkademik Renkler Derneği Yönetimi"
+        msg.attach(MIMEText(body, 'plain', 'utf-8'))
+        server = smtplib.SMTP(st.secrets.get("SMTP_SERVER", "smtp.gmail.com"), int(st.secrets.get("SMTP_PORT", 587)))
+        server.starttls(); server.login(s_email, s_pass); server.send_message(msg); server.quit()
+    except: pass
+
+def send_partner_email_notification(to_email, name, discount, details):
+    try:
+        s_email, s_pass = st.secrets.get("EMAIL_USER", ""), st.secrets.get("EMAIL_PASS", "")
+        if not s_email or not s_pass or not to_email: return False 
+        msg = MIMEMultipart()
+        msg['From'], msg['To'], msg['Subject'] = f"ARDER Sistem <{s_email}>", to_email, f"🤝 Yeni Kurum Fırsatı: {name}"
+        body = f"Değerli Akademik Renkler Derneği Üyesi,\n\nSisteme yeni bir kurum anlaşması / fırsatı eklenmiştir.\n\n🏪 Kurum Adı: {name}\n💸 İndirim/Fırsat: {discount}\n📝 Detaylar: {details}\n\nİyi çalışmalar dileriz,\nAkademik Renkler Derneği Yönetimi"
+        msg.attach(MIMEText(body, 'plain', 'utf-8'))
+        server = smtplib.SMTP(st.secrets.get("SMTP_SERVER", "smtp.gmail.com"), int(st.secrets.get("SMTP_PORT", 587)))
+        server.starttls(); server.login(s_email, s_pass); server.send_message(msg); server.quit()
+    except: pass
+
 def trigger_background_email(*args): threading.Thread(target=send_email_notification, args=args).start()
 def trigger_event_email(*args): threading.Thread(target=send_event_email_notification, args=args).start()
 def trigger_report_email(*args): threading.Thread(target=send_report_email_notification, args=args).start()
+def trigger_announcement_email(*args): threading.Thread(target=send_announcement_email_notification, args=args).start()
+def trigger_partner_email(*args): threading.Thread(target=send_partner_email_notification, args=args).start()
 
 def push_notification(title: str, body: str):
     st.session_state["_notif_title"], st.session_state["_notif_body"] = title, body
@@ -433,7 +496,10 @@ else:
         for a in announcements:
             st.markdown(f'<div class="ann-card"><div class="a-title">{a.title}</div><div class="a-date">{a.date} - {a.author}</div><div class="a-content">{a.content}</div></div>', unsafe_allow_html=True)
 
-        # SIRALI VE RESİMLİ YÖNETİM KURULU VİTRİNİ
+        st.markdown('<div class="section-title">🏆 Liderlik Tablosu</div>', unsafe_allow_html=True)
+        render_leaderboard(db_session)
+
+    def render_board_tab(db_session):
         st.markdown('<div class="section-title">👔 Yönetim Kurulu</div>', unsafe_allow_html=True)
         board_order = ["Başkan", "Başkan Yardımcısı", "Genel Sekreter", "Sayman"]
         board_members = db_session.query(User).filter(User.alan.in_(board_order)).all()
@@ -447,19 +513,25 @@ else:
                 
             st.markdown(f'<div class="board-card">{avatar_html}<div><div class="b-name">{bm.username}</div><div class="b-title">{bm.alan}</div></div></div>', unsafe_allow_html=True)
 
-        st.markdown('<div class="section-title">🏆 Liderlik Tablosu</div>', unsafe_allow_html=True)
-        render_leaderboard(db_session)
+    def render_tuzuk_tab():
+        st.markdown('<div class="section-title">📜 Dernek Tüzüğü</div>', unsafe_allow_html=True)
+        tuzuk_metni = """
+        **Madde 1: Derneğin Adı ve Merkezi**
+        Derneğin Adı: Akademik Renkler Derneği (ARDER)
+        Derneğin merkezi Denizli'dir. Şubesi açılmayacaktır.
+        
+        **Madde 2: Derneğin Amacı**
+        Derneğin amacı, akademik ve kültürel alanda faaliyetler göstererek...
+        *(Buraya kendi tüzüğünüzün tamamını yapıştırabilirsiniz)*
+        """
+        st.markdown(f'<div style="background:#fff; padding:20px; border-radius:16px; box-shadow:0 4px 12px rgba(0,0,0,0.03); border:1px solid #f1f5f9; font-size:14px; color:#475569; line-height:1.6;">{tuzuk_metni}</div>', unsafe_allow_html=True)
 
     def render_profile_tab():
         st.markdown("<br>", unsafe_allow_html=True)
-        
-        # PROFIL KISMINA FOTOGRAF (AVATAR) GÖSTERİMİ
         avatar_html = f'<img src="{cu.avatar}" style="width:100px; height:100px; border-radius:50%; object-fit:cover; margin-bottom:10px;">' if cu.avatar else '<div style="font-size: 60px; margin-bottom: 10px;">👤</div>'
         st.markdown(f'<div style="text-align:center; padding: 2rem; background:#fff; border-radius: 24px; box-shadow: 0 4px 20px rgba(0,0,0,0.03); border: 1px solid #f8fafc;">{avatar_html}<h2 style="color:#1A2744; margin:0; font-weight:900;">{cu.username}</h2><p style="color:#64748b; font-weight:600; margin-top:5px; font-size:14px;">{cu.role} • {cu.alan or ""}</p></div>', unsafe_allow_html=True)
         
         st.markdown("<br>", unsafe_allow_html=True)
-        
-        # PROFIL FOTOĞRAFI YÜKLEME ALANI
         with st.expander("📷 Profil Fotoğrafını Değiştir"):
             uploaded_file = st.file_uploader("Bir fotoğraf seçin", type=["jpg", "jpeg", "png"])
             if uploaded_file is not None:
@@ -485,18 +557,31 @@ else:
                     with st.form("new_ann"):
                         a_title = st.text_input("Duyuru Başlığı")
                         a_content = st.text_area("İçerik")
-                        if st.form_submit_button("Duyuruyu Yayınla", use_container_width=True):
-                            db.add(Announcement(title=a_title, content=a_content, date=datetime.now().strftime("%d.%m.%Y"), author=cu.username))
-                            db.commit(); st.success("Yayınlandı!"); time.sleep(1); st.rerun()
+                        if st.form_submit_button("Duyuruyu Yayınla ve Bildir", use_container_width=True):
+                            today_str = datetime.now().strftime("%d.%m.%Y")
+                            db.add(Announcement(title=a_title, content=a_content, date=today_str, author=cu.username))
+                            db.commit()
+                            
+                            all_users = db.query(User).filter(User.email != "").all()
+                            for usr in all_users:
+                                trigger_announcement_email(usr.email, a_title, a_content, cu.username, today_str)
+                                
+                            st.success("Yayınlandı ve herkese mail iletildi!"); time.sleep(1.5); st.rerun()
                 with tab_k:
                     with st.form("new_part"):
                         p_name = st.text_input("Kurum Adı (Örn: Pamuk Kafe)")
                         p_disc = st.text_input("İndirim/Fırsat (Örn: %15 İndirim)")
                         p_det = st.text_area("Detaylar")
                         p_icon = st.text_input("İkon (Emoji olarak, Örn: ☕)", value="🏪")
-                        if st.form_submit_button("Kurumu Ekle", use_container_width=True):
+                        if st.form_submit_button("Kurumu Ekle ve Bildir", use_container_width=True):
                             db.add(Partner(name=p_name, discount=p_disc, details=p_det, icon=p_icon))
-                            db.commit(); st.success("Eklendi!"); time.sleep(1); st.rerun()
+                            db.commit()
+                            
+                            all_users = db.query(User).filter(User.email != "").all()
+                            for usr in all_users:
+                                trigger_partner_email(usr.email, p_name, p_disc, p_det)
+                                
+                            st.success("Eklendi ve herkese mail iletildi!"); time.sleep(1.5); st.rerun()
 
             st.markdown("### 👑 Yönetici Paneli")
             with st.expander("➕ Yeni Etkinlik Duyurusu Oluştur"):
@@ -564,254 +649,78 @@ else:
                             db.commit(); st.success("Yanıtınız kaydedildi!"); time.sleep(1); st.rerun()
                 st.markdown("<br>", unsafe_allow_html=True)
 
-    # ── ROL BAZLI SEKME DAĞILIMI (MOBİL UYUMLU İKONLARLA) ──
-    if cu.role == "Moderatör":
-        t1, t2, t3, t4, t5, t6, t7 = st.tabs(["🏠 Ana", "📝 Görev", "🎯 Ata", "⚙️ Yönet", "👥 Üye", "📅 Pano", "👤 Profil"])
-        with t1: render_home_tab(db)
-        with t2:
-            tasks = db.query(Task).filter(Task.assigned_to==cu.username, Task.status=="Bekliyor").all()
-            if not tasks: st.markdown('<div style="text-align:center;padding:3rem;"><div style="font-size:40px; margin-bottom:10px;">✨</div><b style="color:#1A2744;">Bekleyen göreviniz bulunmuyor.</b></div>', unsafe_allow_html=True)
-            for t in tasks:
-                due_label = f"| Son: {t.due_date}" if t.due_date else ""
-                st.markdown(f'<div class="task-card"><div class="task-title">{t.title}</div><div class="task-meta">{t.description}</div><div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:4px;"><span class="badge {BADGE.get(t.priority)}">{t.priority}</span> <span style="font-size:0.75rem; font-weight:800; color:#2DB5A0;">Maks Puan: {t.points} <span style="color:#94a3b8; font-weight:500;">{due_label}</span></span></div></div>', unsafe_allow_html=True)
-                with st.expander("📝 Görevi Tamamla ve Raporla"):
-                    with st.form(f"rep_form_{t.id}"):
-                        step_results = []
-                        if getattr(t, 'steps', ""):
-                            st.markdown("**📌 Görev Adımlarını İşaretleyin:**")
-                            for i, step in enumerate(json.loads(t.steps)):
-                                res = st.radio(step, ["Yaptım", "Yapamadım"], key=f"rad_{cu.username}_{t.id}_{i}", horizontal=True)
-                                step_results.append((step, res))
-                        rep_txt = st.text_area("Görev Raporu", placeholder="Neler yaptınız? Varsa yapamadığınız veya eksik kalan kısımlar nelerdir?")
-                        if st.form_submit_button("Raporu Gönder ve Tamamla", use_container_width=True):
-                            if len(rep_txt.strip()) < 3: st.error("Lütfen kısaca da olsa bir rapor yazın.")
-                            else:
-                                total_s = len(step_results)
-                                done_s = sum(1 for s, r in step_results if r == "Yaptım")
-                                pct = (done_s / total_s) if total_s > 0 else 1.0
-                                earned = int(t.points * pct)
-                                final_report = f"📊 **Görev Başarısı:** %{int(pct*100)} ({earned}/{t.points} Puan)\n\n**📌 ADIMLAR:**\n"
-                                for s, r in step_results: final_report += f"{'✅' if r == 'Yaptım' else '❌'} {s}\n"
-                                final_report += f"\n**📝 RAPOR:**\n{rep_txt.strip()}"
-                                t.status = "Tamamlandı"
-                                t.report = final_report
-                                t.earned_points = earned
-                                cu.points = (cu.points or 0) + earned
-                                cu.lifetime_points = (cu.lifetime_points or 0) + earned
-                                cu.total_completed = (cu.total_completed or 0) + 1
-                                db.commit()
-                                trigger_report_email(t.title, cu.username, t.assigned_by, final_report, earned, t.points)
-                                st.success("Görev ve rapor başarıyla iletildi!"); time.sleep(1.5); st.rerun()
-                if t.due_date:
-                    ics = make_ics(t.title, t.description or "", t.due_date)
-                    st.download_button("Takvime Ekle", data=ics, file_name=f"arder_{t.id}.ics", mime="text/calendar", key=f"m_ics_{t.id}", use_container_width=True)
+    # ══════════════════════════════════════════════════════════
+    # 9. SAYFA YÖNLENDİRME SİSTEMİ (STATE MANAGEMENT)
+    # ══════════════════════════════════════════════════════════
+    if "current_page" not in st.session_state:
+        st.session_state.current_page = "Menü"
 
-        with t3:
-            users = db.query(User).filter(User.username != cu.username).all()
-            if not users: st.info("Sistemde üye yok.")
-            else:
-                assign_mode = st.radio("Atama Türü Seçin:", ["Bireysel (Çoklu Seçim)", "Tüm Birime Ata"], horizontal=True)
-                st.markdown("<hr style='margin:0.5rem 0;'>", unsafe_allow_html=True)
-                with st.form("assign_task_mod"):
-                    target_usernames = []
-                    if assign_mode == "Bireysel (Çoklu Seçim)":
-                        selected_items = st.multiselect("Kime Görev Atanacak:", [f"{u.username} ({u.alan})" for u in users])
-                    else:
-                        alanlar_list = sorted(list(set([u.alan for u in users if u.alan])))
-                        selected_alan = st.selectbox("Hangi Birime Görev Atanacak:", alanlar_list)
-                    tt = st.text_input("Başlık")
-                    td = st.text_area("Detaylar (Görevin Genel Amacı)", height=60)
-                    t_steps = st.text_area("Görev Adımları (İsteğe bağlı. Her satıra 1 adım yazın)", height=100)
-                    c1, c2 = st.columns(2)
-                    with c1: tp = st.selectbox("Öncelik", ["Acil","Yüksek","Orta","Düşük"])
-                    with c2: tpts = st.number_input("Maks. Puan", min_value=1, value=10)
-                    t_due = st.date_input("Son Tarih", value=date.today() + timedelta(days=7), min_value=date.today(), format="DD.MM.YYYY")
-                    st.markdown("<br>", unsafe_allow_html=True)
-                    if st.form_submit_button("Görevi Gönder", use_container_width=True):
-                        if not tt.strip(): st.warning("Başlık boş olamaz.")
-                        else:
-                            if assign_mode == "Bireysel (Çoklu Seçim)": target_usernames = [s.rsplit(" (", 1)[0] for s in selected_items]
-                            else:
-                                target_users_query = db.query(User).filter(User.alan == selected_alan).all()
-                                target_usernames = [u.username for u in target_users_query]
-                            if not target_usernames: st.error("Lütfen atanacak kişi veya birimi seçin!")
-                            else:
-                                formatted_t_due = t_due.strftime("%d.%m.%Y")
-                                steps_str = json.dumps([s.strip() for s in t_steps.split('\n') if s.strip()]) if t_steps.strip() else ""
-                                for uname in target_usernames:
-                                    target_u = db.query(User).filter(User.username==uname).first()
-                                    if target_u: target_u.total_assigned = (target_u.total_assigned or 0) + 1 
-                                    db.add(Task(assigned_to=uname, assigned_by=cu.username, title=tt, description=td, steps=steps_str, priority=tp, points=tpts, status="Bekliyor", due_date=formatted_t_due))
-                                    if target_u and target_u.email: trigger_background_email(target_u.email, target_u.username, tt, td, tp, tpts, formatted_t_due)
-                                db.commit(); st.success(f"Görev başarıyla {len(target_usernames)} kişiye atandı ve mailleri gönderildi!")
+    def go_to_page(page_name):
+        st.session_state.current_page = page_name
+
+    # --- ANA MENÜ (GRID BUTONLARI) ---
+    if st.session_state.current_page == "Menü":
+        avatar_html = f'<img src="{cu.avatar}" style="width:90px; height:90px; border-radius:50%; object-fit:cover; margin: 0 auto 10px auto; display:block; box-shadow: 0 4px 14px rgba(0,0,0,0.1);">' if cu.avatar else '<div style="font-size: 60px; text-align:center; margin-bottom: 10px;">👤</div>'
+        st.markdown(f'<div style="text-align:center; padding: 1rem 0 2rem 0;">{avatar_html}<h3 style="color:#1A2744; margin:0; font-weight:900;">{cu.username}</h3><p style="color:#2DB5A0; font-weight:700; margin-top:3px; font-size:13px;">{cu.role} • {cu.alan or ""}</p></div>', unsafe_allow_html=True)
+
+        st.markdown("<div class='menu-grid-btn'>", unsafe_allow_html=True)
         
-        with t4:
-            st.markdown("### 📊 Tüm Verileri Dışa Aktar")
-            all_tasks_db = db.query(Task).order_by(Task.id.desc()).all()
-            if all_tasks_db:
-                data = []
-                today_d = datetime.now().date()
-                for tk in all_tasks_db:
-                    u_info = db.query(User).filter(User.username == tk.assigned_to).first()
-                    gecikme = "Zamanında"
-                    if tk.status == "Bekliyor" and tk.due_date:
-                        try:
-                            if datetime.strptime(tk.due_date, "%d.%m.%Y").date() < today_d: gecikme = "Gecikti"
-                        except: pass
-                    data.append({"Görev ID": tk.id, "Görev Başlığı": tk.title, "Atanan Kişi": tk.assigned_to, "Kişi Birimi": u_info.alan if u_info else "-", "Görev Veren": tk.assigned_by, "Durum": tk.status, "Öncelik": tk.priority, "Maks Puan": tk.points, "Kazanılan Puan": tk.earned_points or 0, "Son Tarih": tk.due_date, "Gecikme Durumu": gecikme})
-                df = pd.DataFrame(data)
-                csv = df.to_csv(index=False, sep=";", encoding="utf-8-sig")
-                st.download_button(label="📥 Tüm Görev Raporlarını İndir (.csv Excel)", data=csv, file_name=f"arder_gorev_raporu_{date.today()}.csv", mime="text/csv", use_container_width=True)
+        c1, c2, c3 = st.columns(3)
+        with c1:
+            if st.button("🏠\nAna Ekran", use_container_width=True): go_to_page("Ana Ekran"); st.rerun()
+        with c2:
+            if st.button("👔\nYönetim", use_container_width=True): go_to_page("Yönetim"); st.rerun()
+        with c3:
+            if st.button("📝\nGörevlerim", use_container_width=True): go_to_page("Görevlerim"); st.rerun()
             
-            st.divider(); st.markdown("### 📋 Geçmiş Görev Kayıtları")
-            for t in all_tasks_db:
-                status_color = "color:#2DB5A0;" if t.status == "Tamamlandı" else "color:#ef4444;" if t.status == "İptal Edildi" else "color:#eab308;"
-                with st.expander(f"{t.title} -> {t.assigned_to}"):
-                    st.markdown(f"**Veren:** {t.assigned_by} | <span style='{status_color}'>**Durum:** {t.status}</span><br>**Açıklama:** {t.description}", unsafe_allow_html=True)
-                    if getattr(t, 'report', ""): st.info(t.report)
-                    if t.status != "İptal Edildi":
-                        st.markdown("<div class='btn-danger'>", unsafe_allow_html=True)
-                        if st.button("İptal Et", key=f"c_{t.id}"):
-                            target_u = db.query(User).filter(User.username == t.assigned_to).first()
-                            if target_u: target_u.total_assigned = max(0, (target_u.total_assigned or 0) - 1)
-                            if t.status == "Tamamlandı":
-                                if target_u:
-                                    target_u.points = max(0, target_u.points - (t.earned_points or t.points))
-                                    target_u.lifetime_points = max(0, (target_u.lifetime_points or 0) - (t.earned_points or t.points))
-                                    target_u.total_completed = max(0, (target_u.total_completed or 0) - 1)
-                            t.status = "İptal Edildi"
-                            db.commit(); st.rerun()
-                        st.markdown("</div>", unsafe_allow_html=True)
-        with t5:
-            for u in db.query(User).filter(User.username != cu.username).all():
-                with st.expander(f"👤 {u.username} ({u.alan})"):
-                    assigned, completed = u.total_assigned or 0, u.total_completed or 0
-                    overdue = 0
-                    today_d = datetime.now().date()
-                    usr_pending = db.query(Task).filter(Task.assigned_to==u.username, Task.status=="Bekliyor").all()
-                    for tsk in usr_pending:
-                        if tsk.due_date:
-                            try:
-                                if datetime.strptime(tsk.due_date, "%d.%m.%Y").date() < today_d: overdue += 1
-                            except: pass
-                    st.markdown(f"<div style='display:flex; justify-content:space-between; text-align:center; background:#f8fafc; padding:15px; border-radius:12px; margin-bottom:15px;'><div><div style='font-size:11px; color:#64748b; font-weight:700;'>Verilen</div><div style='font-weight:900; font-size:18px; color:#1A2744;'>{assigned}</div></div><div><div style='font-size:11px; color:#64748b; font-weight:700;'>Yapılan</div><div style='font-weight:900; font-size:18px; color:#2DB5A0;'>{completed}</div></div><div><div style='font-size:11px; color:#ef4444; font-weight:700;'>Geciken</div><div style='font-weight:900; font-size:18px; color:#ef4444;'>{overdue}</div></div><div><div style='font-size:11px; color:#64748b; font-weight:700;'>Tüm Puan</div><div style='font-weight:900; font-size:18px; color:#f59e0b;'>⭐ {u.lifetime_points or 0}</div></div></div>", unsafe_allow_html=True)
-                    st.markdown("<div class='btn-danger'>", unsafe_allow_html=True)
-                    if st.button("Kullanıcıyı Sil", key=f"d_{u.id}"): db.query(Task).filter(Task.assigned_to == u.username).delete(); db.delete(u); db.commit(); st.rerun()
-                    st.markdown("</div>", unsafe_allow_html=True)
-            st.divider()
-            st.markdown("<div class='btn-danger'>", unsafe_allow_html=True)
-            if st.button("Sistemi Sıfırla (Karneler Silinmez)", use_container_width=True): db.query(Task).delete(); db.query(User).update({User.points: 0}); db.commit(); st.rerun()
-            st.markdown("</div>", unsafe_allow_html=True)
-        with t6: render_pano_tab(is_admin=True)
-        with t7: render_profile_tab()
+        c4, c5, c6 = st.columns(3)
+        with c4:
+            if st.button("📅\nPano", use_container_width=True): go_to_page("Pano"); st.rerun()
+        with c5:
+            if st.button("📜\nTüzük", use_container_width=True): go_to_page("Tüzük"); st.rerun()
+        with c6:
+            if st.button("👤\nProfilim", use_container_width=True): go_to_page("Profilim"); st.rerun()
 
-    elif cu.role == "Birim Başkanı":
-        t1, t2, t3, t4, t5, t6 = st.tabs(["🏠 Ana", "📝 Görev", "🎯 Ata", "⚙️ Takip", "📅 Pano", "👤 Profil"])
-        with t1: render_home_tab(db)
-        with t2:
-            tasks = db.query(Task).filter(Task.assigned_to==cu.username, Task.status=="Bekliyor").all()
-            if not tasks: st.markdown('<div style="text-align:center;padding:3rem;"><div style="font-size:40px; margin-bottom:10px;">✨</div><b style="color:#1A2744;">Bekleyen göreviniz bulunmuyor.</b></div>', unsafe_allow_html=True)
-            for t in tasks:
-                due_label = f"| Son: {t.due_date}" if t.due_date else ""
-                st.markdown(f'<div class="task-card"><div class="task-title">{t.title}</div><div class="task-meta">{t.description}</div><div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:4px;"><span class="badge {BADGE.get(t.priority)}">{t.priority}</span> <span style="font-size:0.75rem; font-weight:800; color:#2DB5A0;">Maks Puan: {t.points} <span style="color:#94a3b8; font-weight:500;">{due_label}</span></span></div></div>', unsafe_allow_html=True)
-                with st.expander("📝 Görevi Tamamla ve Raporla"):
-                    with st.form(f"rep_form_{t.id}"):
-                        step_results = []
-                        if getattr(t, 'steps', ""):
-                            st.markdown("**📌 Görev Adımlarını İşaretleyin:**")
-                            for i, step in enumerate(json.loads(t.steps)):
-                                res = st.radio(step, ["Yaptım", "Yapamadım"], key=f"rad_{cu.username}_{t.id}_{i}", horizontal=True)
-                                step_results.append((step, res))
-                        rep_txt = st.text_area("Görev Raporu", placeholder="Neler yaptınız? Varsa yapamadığınız veya eksik kalan kısımlar nelerdir?")
-                        if st.form_submit_button("Raporu Gönder ve Tamamla", use_container_width=True):
-                            if len(rep_txt.strip()) < 3: st.error("Lütfen kısaca da olsa bir rapor yazın.")
-                            else:
-                                total_s = len(step_results)
-                                done_s = sum(1 for s, r in step_results if r == "Yaptım")
-                                pct = (done_s / total_s) if total_s > 0 else 1.0
-                                earned = int(t.points * pct)
-                                final_report = f"📊 **Görev Başarısı:** %{int(pct*100)} ({earned}/{t.points} Puan)\n\n**📌 ADIMLAR:**\n"
-                                for s, r in step_results: final_report += f"{'✅' if r == 'Yaptım' else '❌'} {s}\n"
-                                final_report += f"\n**📝 RAPOR:**\n{rep_txt.strip()}"
-                                t.status = "Tamamlandı"
-                                t.report = final_report
-                                t.earned_points = earned
-                                cu.points = (cu.points or 0) + earned
-                                cu.lifetime_points = (cu.lifetime_points or 0) + earned
-                                cu.total_completed = (cu.total_completed or 0) + 1
-                                db.commit()
-                                trigger_report_email(t.title, cu.username, t.assigned_by, final_report, earned, t.points)
-                                st.success("Görev ve rapor başarıyla iletildi!"); time.sleep(1.5); st.rerun()
-                if t.due_date:
-                    ics = make_ics(t.title, t.description or "", t.due_date)
-                    st.download_button("Takvime Ekle", data=ics, file_name=f"arder_{t.id}.ics", mime="text/calendar", key=f"bb_ics_{t.id}", use_container_width=True)
-        with t3:
-            members = db.query(User).filter(User.role == "Üye").all()
-            if not members: st.info("Sistemde üye yok.")
-            else:
-                assign_mode = st.radio("Atama Türü Seçin:", ["Bireysel (Çoklu Seçim)", "Tüm Birime Ata"], horizontal=True)
-                st.markdown("<hr style='margin:0.5rem 0;'>", unsafe_allow_html=True)
-                with st.form("assign_task_bb"):
-                    target_usernames = []
-                    if assign_mode == "Bireysel (Çoklu Seçim)":
-                        selected_items = st.multiselect("Kime Görev Atanacak:", [f"{u.username} ({u.alan})" for u in members])
-                    else:
-                        alanlar_list = sorted(list(set([u.alan for u in members if u.alan])))
-                        selected_alan = st.selectbox("Hangi Birime Görev Atanacak:", alanlar_list)
-                    tt = st.text_input("Başlık")
-                    td = st.text_area("Detaylar (Görevin Genel Amacı)", height=60)
-                    t_steps = st.text_area("Görev Adımları (İsteğe bağlı. Her satıra 1 adım yazın)", height=100)
-                    c1, c2 = st.columns(2)
-                    with c1: tp = st.selectbox("Öncelik", ["Acil","Yüksek","Orta","Düşük"])
-                    with c2: tpts = st.number_input("Maks. Puan", min_value=1, value=10)
-                    t_due = st.date_input("Son Tarih", value=date.today() + timedelta(days=7), format="DD.MM.YYYY")
-                    st.markdown("<br>", unsafe_allow_html=True)
-                    if st.form_submit_button("Görevi Gönder", use_container_width=True):
-                        if not tt.strip(): st.warning("Başlık boş olamaz.")
-                        else:
-                            if assign_mode == "Bireysel (Çoklu Seçim)": target_usernames = [s.rsplit(" (", 1)[0] for s in selected_items]
-                            else:
-                                target_users_query = db.query(User).filter(User.alan == selected_alan).all()
-                                target_usernames = [u.username for u in target_users_query]
-                            if not target_usernames: st.error("Lütfen atanacak kişi veya birimi seçin!")
-                            else:
-                                formatted_t_due = t_due.strftime("%d.%m.%Y")
-                                steps_str = json.dumps([s.strip() for s in t_steps.split('\n') if s.strip()]) if t_steps.strip() else ""
-                                for uname in target_usernames:
-                                    target_u = db.query(User).filter(User.username==uname).first()
-                                    if target_u: target_u.total_assigned = (target_u.total_assigned or 0) + 1 
-                                    db.add(Task(assigned_to=uname, assigned_by=cu.username, title=tt, description=td, steps=steps_str, priority=tp, points=tpts, status="Bekliyor", due_date=formatted_t_due))
-                                    if target_u and target_u.email: trigger_background_email(target_u.email, target_u.username, tt, td, tp, tpts, formatted_t_due)
-                                db.commit(); st.success(f"Görev başarıyla {len(target_usernames)} kişiye atandı ve mailleri gönderildi!")
-        with t4:
-            st.markdown("### Ekibinizin Karneleri")
-            for u in db.query(User).filter(User.role == "Üye").all():
-                with st.expander(f"👤 {u.username} ({u.alan})"):
-                    completed = u.total_completed or 0
-                    assigned = max(u.total_assigned or 0, completed)
-                    overdue = 0
-                    today_d = datetime.now().date()
-                    usr_pending = db.query(Task).filter(Task.assigned_to==u.username, Task.status=="Bekliyor").all()
-                    for tsk in usr_pending:
-                        if tsk.due_date:
-                            try:
-                                if datetime.strptime(tsk.due_date, "%d.%m.%Y").date() < today_d: overdue += 1
-                            except: pass
-                    st.markdown(f"**Verilen İş:** {assigned} | **Yapılan:** {completed} | **Geciken:** <span style='color:#ef4444;'>{overdue}</span> | **Tüm Puan:** ⭐ {u.lifetime_points or 0}", unsafe_allow_html=True)
-            st.divider(); st.markdown("### Verdiğiniz Görevlerin Durumu")
-            for t in db.query(Task).filter(Task.assigned_by==cu.username).order_by(Task.id.desc()).limit(20).all():
-                with st.expander(f"{t.title} -> {t.assigned_to} ({t.status})"):
-                    st.markdown(f"**Açıklama:** {t.description}"); 
-                    if getattr(t, 'report', ""): st.info(t.report)
-        with t5: render_pano_tab(is_admin=True)
-        with t6: render_profile_tab()
+        if cu.role in ["Moderatör", "Birim Başkanı"]:
+            c7, c8, c9 = st.columns(3)
+            with c7:
+                if st.button("🎯\nGörev Ata", use_container_width=True): go_to_page("Görev Ata"); st.rerun()
+            with c8:
+                if st.button("⚙️\nEkip Takip", use_container_width=True): go_to_page("Ekip Takip"); st.rerun()
+            with c9:
+                if cu.role == "Moderatör":
+                    if st.button("👥\nÜyeler", use_container_width=True): go_to_page("Üyeler"); st.rerun()
+                else:
+                    st.empty() 
+        st.markdown("</div>", unsafe_allow_html=True)
 
+    # --- İÇ SAYFALAR ---
     else:
-        t1, t2, t3, t4, t5 = st.tabs(["🏠 Ana", "📝 Görev", "📋 Geçmiş", "📅 Pano", "👤 Profil"])
-        with t1: render_home_tab(db)
-        with t2:
+        st.markdown("<div class='back-btn'>", unsafe_allow_html=True)
+        if st.button("⬅️ Menüye Dön"):
+            go_to_page("Menü"); st.rerun()
+        st.markdown("</div>", unsafe_allow_html=True)
+        st.divider()
+
+        if st.session_state.current_page == "Ana Ekran": 
+            render_home_tab(db)
+            
+        elif st.session_state.current_page == "Yönetim": 
+            render_board_tab(db)
+            
+        elif st.session_state.current_page == "Tüzük": 
+            render_tuzuk_tab()
+            
+        elif st.session_state.current_page == "Pano": 
+            render_pano_tab(is_admin=(cu.role in ["Moderatör", "Birim Başkanı"]))
+            
+        elif st.session_state.current_page == "Profilim": 
+            render_profile_tab()
+            
+        elif st.session_state.current_page == "Görevlerim":
+            st.markdown('<div class="section-title">📋 Bekleyen Görevleriniz</div>', unsafe_allow_html=True)
             tasks = db.query(Task).filter(Task.assigned_to==cu.username, Task.status=="Bekliyor").all()
-            if not tasks: st.markdown('<div style="text-align:center;padding:3rem;"><div style="font-size:40px; margin-bottom:10px;">✨</div><b style="color:#1A2744;">Bekleyen göreviniz bulunmuyor.</b></div>', unsafe_allow_html=True)
+            if not tasks: st.markdown('<div style="text-align:center;padding:2rem;"><div style="font-size:40px; margin-bottom:10px;">✨</div><b style="color:#1A2744;">Bekleyen göreviniz bulunmuyor.</b></div>', unsafe_allow_html=True)
             for t in tasks:
                 due_label = f"| Son: {t.due_date}" if t.due_date else ""
                 st.markdown(f'<div class="task-card"><div class="task-title">{t.title}</div><div class="task-meta">{t.description}</div><div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:4px;"><span class="badge {BADGE.get(t.priority)}">{t.priority}</span> <span style="font-size:0.75rem; font-weight:800; color:#2DB5A0;">Maks Puan: {t.points} <span style="color:#94a3b8; font-weight:500;">{due_label}</span></span></div></div>', unsafe_allow_html=True)
@@ -846,12 +755,138 @@ else:
                 if t.due_date:
                     ics = make_ics(t.title, t.description or "", t.due_date)
                     st.download_button("Takvime Ekle", data=ics, file_name=f"arder_{t.id}.ics", mime="text/calendar", key=f"ics_{t.id}", use_container_width=True)
-        with t3:
+            
+            st.markdown("<hr>", unsafe_allow_html=True)
+            st.markdown('<div class="section-title">✔️ Tamamlanan Görevler</div>', unsafe_allow_html=True)
             done_tasks = db.query(Task).filter(Task.assigned_to==cu.username, Task.status=="Tamamlandı").order_by(Task.id.desc()).limit(20).all()
+            if not done_tasks: st.info("Henüz tamamlanmış görev yok.")
             for t in done_tasks: 
                 st.markdown(f'<div class="task-card done" style="margin-bottom:0.5rem;"><div class="task-title">✓ {t.title}</div><div class="task-meta" style="color:#2DB5A0; font-weight:700;">Kazanılan: +{t.earned_points or t.points} / {t.points} pts</div></div>', unsafe_allow_html=True)
                 if getattr(t, 'report', ""): st.info(t.report)
-        with t4: render_pano_tab(is_admin=False)
-        with t5: render_profile_tab()
+
+        elif st.session_state.current_page == "Görev Ata" and cu.role in ["Moderatör", "Birim Başkanı"]:
+            st.markdown('<div class="section-title">🎯 Yeni Görev Ata</div>', unsafe_allow_html=True)
+            if cu.role == "Moderatör":
+                target_user_pool = db.query(User).filter(User.username != cu.username).all()
+            else:
+                target_user_pool = db.query(User).filter(User.role == "Üye").all()
+
+            if not target_user_pool: st.info("Sistemde atanacak kişi yok.")
+            else:
+                assign_mode = st.radio("Atama Türü Seçin:", ["Bireysel (Çoklu Seçim)", "Tüm Birime Ata"], horizontal=True)
+                st.markdown("<hr style='margin:0.5rem 0;'>", unsafe_allow_html=True)
+                with st.form("assign_task_form"):
+                    target_usernames = []
+                    if assign_mode == "Bireysel (Çoklu Seçim)":
+                        selected_items = st.multiselect("Kime Görev Atanacak:", [f"{u.username} ({u.alan})" for u in target_user_pool])
+                    else:
+                        alanlar_list = sorted(list(set([u.alan for u in target_user_pool if u.alan])))
+                        selected_alan = st.selectbox("Hangi Birime Görev Atanacak:", alanlar_list)
+                    tt = st.text_input("Başlık")
+                    td = st.text_area("Detaylar (Görevin Genel Amacı)", height=60)
+                    t_steps = st.text_area("Görev Adımları (İsteğe bağlı. Her satıra 1 adım yazın)", height=100)
+                    c1, c2 = st.columns(2)
+                    with c1: tp = st.selectbox("Öncelik", ["Acil","Yüksek","Orta","Düşük"])
+                    with c2: tpts = st.number_input("Maks. Puan", min_value=1, value=10)
+                    t_due = st.date_input("Son Tarih", value=date.today() + timedelta(days=7), format="DD.MM.YYYY")
+                    st.markdown("<br>", unsafe_allow_html=True)
+                    if st.form_submit_button("Görevi Gönder", use_container_width=True):
+                        if not tt.strip(): st.warning("Başlık boş olamaz.")
+                        else:
+                            if assign_mode == "Bireysel (Çoklu Seçim)": target_usernames = [s.rsplit(" (", 1)[0] for s in selected_items]
+                            else:
+                                target_users_query = db.query(User).filter(User.alan == selected_alan).all()
+                                target_usernames = [u.username for u in target_users_query]
+                            if not target_usernames: st.error("Lütfen atanacak kişi veya birimi seçin!")
+                            else:
+                                formatted_t_due = t_due.strftime("%d.%m.%Y")
+                                steps_str = json.dumps([s.strip() for s in t_steps.split('\n') if s.strip()]) if t_steps.strip() else ""
+                                for uname in target_usernames:
+                                    target_u = db.query(User).filter(User.username==uname).first()
+                                    if target_u: target_u.total_assigned = (target_u.total_assigned or 0) + 1 
+                                    db.add(Task(assigned_to=uname, assigned_by=cu.username, title=tt, description=td, steps=steps_str, priority=tp, points=tpts, status="Bekliyor", due_date=formatted_t_due))
+                                    if target_u and target_u.email: trigger_background_email(target_u.email, target_u.username, tt, td, tp, tpts, formatted_t_due)
+                                db.commit(); st.success(f"Görev başarıyla {len(target_usernames)} kişiye atandı ve mailleri gönderildi!")
+
+        elif st.session_state.current_page == "Ekip Takip" and cu.role in ["Moderatör", "Birim Başkanı"]:
+            if cu.role == "Moderatör":
+                st.markdown("### 📊 Tüm Verileri Dışa Aktar")
+                all_tasks_db = db.query(Task).order_by(Task.id.desc()).all()
+                if all_tasks_db:
+                    data = []
+                    today_d = datetime.now().date()
+                    for tk in all_tasks_db:
+                        u_info = db.query(User).filter(User.username == tk.assigned_to).first()
+                        gecikme = "Zamanında"
+                        if tk.status == "Bekliyor" and tk.due_date:
+                            try:
+                                if datetime.strptime(tk.due_date, "%d.%m.%Y").date() < today_d: gecikme = "Gecikti"
+                            except: pass
+                        data.append({"Görev ID": tk.id, "Görev Başlığı": tk.title, "Atanan Kişi": tk.assigned_to, "Kişi Birimi": u_info.alan if u_info else "-", "Görev Veren": tk.assigned_by, "Durum": tk.status, "Öncelik": tk.priority, "Maks Puan": tk.points, "Kazanılan Puan": tk.earned_points or 0, "Son Tarih": tk.due_date, "Gecikme Durumu": gecikme})
+                    df = pd.DataFrame(data)
+                    csv = df.to_csv(index=False, sep=";", encoding="utf-8-sig")
+                    st.download_button(label="📥 Tüm Görev Raporlarını İndir (.csv Excel)", data=csv, file_name=f"arder_gorev_raporu_{date.today()}.csv", mime="text/csv", use_container_width=True)
+                
+                st.divider(); st.markdown("### 📋 Geçmiş Görev Kayıtları")
+                for t in all_tasks_db:
+                    status_color = "color:#2DB5A0;" if t.status == "Tamamlandı" else "color:#ef4444;" if t.status == "İptal Edildi" else "color:#eab308;"
+                    with st.expander(f"{t.title} -> {t.assigned_to}"):
+                        st.markdown(f"**Veren:** {t.assigned_by} | <span style='{status_color}'>**Durum:** {t.status}</span><br>**Açıklama:** {t.description}", unsafe_allow_html=True)
+                        if getattr(t, 'report', ""): st.info(t.report)
+                        if t.status != "İptal Edildi":
+                            st.markdown("<div class='btn-danger'>", unsafe_allow_html=True)
+                            if st.button("İptal Et", key=f"c_{t.id}"):
+                                target_u = db.query(User).filter(User.username == t.assigned_to).first()
+                                if target_u: target_u.total_assigned = max(0, (target_u.total_assigned or 0) - 1)
+                                if t.status == "Tamamlandı":
+                                    if target_u:
+                                        target_u.points = max(0, target_u.points - (t.earned_points or t.points))
+                                        target_u.lifetime_points = max(0, (target_u.lifetime_points or 0) - (t.earned_points or t.points))
+                                        target_u.total_completed = max(0, (target_u.total_completed or 0) - 1)
+                                t.status = "İptal Edildi"
+                                db.commit(); st.rerun()
+                            st.markdown("</div>", unsafe_allow_html=True)
+            else:
+                st.markdown("### Ekibinizin Karneleri")
+                for u in db.query(User).filter(User.role == "Üye").all():
+                    with st.expander(f"👤 {u.username} ({u.alan})"):
+                        completed = u.total_completed or 0
+                        assigned = max(u.total_assigned or 0, completed)
+                        overdue = 0
+                        today_d = datetime.now().date()
+                        usr_pending = db.query(Task).filter(Task.assigned_to==u.username, Task.status=="Bekliyor").all()
+                        for tsk in usr_pending:
+                            if tsk.due_date:
+                                try:
+                                    if datetime.strptime(tsk.due_date, "%d.%m.%Y").date() < today_d: overdue += 1
+                                except: pass
+                        st.markdown(f"**Verilen İş:** {assigned} | **Yapılan:** {completed} | **Geciken:** <span style='color:#ef4444;'>{overdue}</span> | **Tüm Puan:** ⭐ {u.lifetime_points or 0}", unsafe_allow_html=True)
+                st.divider(); st.markdown("### Verdiğiniz Görevlerin Durumu")
+                for t in db.query(Task).filter(Task.assigned_by==cu.username).order_by(Task.id.desc()).limit(20).all():
+                    with st.expander(f"{t.title} -> {t.assigned_to} ({t.status})"):
+                        st.markdown(f"**Açıklama:** {t.description}"); 
+                        if getattr(t, 'report', ""): st.info(t.report)
+            
+        elif st.session_state.current_page == "Üyeler" and cu.role == "Moderatör":
+            st.markdown('<div class="section-title">👥 Tüm Üyeler ve İstatistikleri</div>', unsafe_allow_html=True)
+            for u in db.query(User).filter(User.username != cu.username).all():
+                with st.expander(f"👤 {u.username} ({u.alan})"):
+                    assigned, completed = u.total_assigned or 0, u.total_completed or 0
+                    overdue = 0
+                    today_d = datetime.now().date()
+                    usr_pending = db.query(Task).filter(Task.assigned_to==u.username, Task.status=="Bekliyor").all()
+                    for tsk in usr_pending:
+                        if tsk.due_date:
+                            try:
+                                if datetime.strptime(tsk.due_date, "%d.%m.%Y").date() < today_d: overdue += 1
+                            except: pass
+                    st.markdown(f"<div style='display:flex; justify-content:space-between; text-align:center; background:#f8fafc; padding:15px; border-radius:12px; margin-bottom:15px;'><div><div style='font-size:11px; color:#64748b; font-weight:700;'>Verilen</div><div style='font-weight:900; font-size:18px; color:#1A2744;'>{assigned}</div></div><div><div style='font-size:11px; color:#64748b; font-weight:700;'>Yapılan</div><div style='font-weight:900; font-size:18px; color:#2DB5A0;'>{completed}</div></div><div><div style='font-size:11px; color:#ef4444; font-weight:700;'>Geciken</div><div style='font-weight:900; font-size:18px; color:#ef4444;'>{overdue}</div></div><div><div style='font-size:11px; color:#64748b; font-weight:700;'>Tüm Puan</div><div style='font-weight:900; font-size:18px; color:#f59e0b;'>⭐ {u.lifetime_points or 0}</div></div></div>", unsafe_allow_html=True)
+                    st.markdown("<div class='btn-danger'>", unsafe_allow_html=True)
+                    if st.button("Kullanıcıyı Sil", key=f"d_{u.id}"): db.query(Task).filter(Task.assigned_to == u.username).delete(); db.delete(u); db.commit(); st.rerun()
+                    st.markdown("</div>", unsafe_allow_html=True)
+            st.divider()
+            st.markdown("<div class='btn-danger'>", unsafe_allow_html=True)
+            if st.button("Sistemi Sıfırla (Karneler Silinmez)", use_container_width=True): db.query(Task).delete(); db.query(User).update({User.points: 0}); db.commit(); st.rerun()
+            st.markdown("</div>", unsafe_allow_html=True)
 
 db.close()
