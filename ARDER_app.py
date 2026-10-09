@@ -440,10 +440,12 @@ if not st.session_state.logged_in:
     tab1, tab2 = st.tabs(["Giriş Yap", "Kayıt Ol"])
     with tab1:
         st.markdown("<br>", unsafe_allow_html=True)
-        lu, lp = st.text_input("Kullanıcı Adı"), st.text_input("Şifre", type="password")
+        # BÖLÜM 1: Kullanıcı Adı yerine E-Posta ile giriş.
+        lu, lp = st.text_input("E-Posta Adresi"), st.text_input("Şifre", type="password")
         st.markdown("<br>", unsafe_allow_html=True)
         if st.button("Giriş Yap", use_container_width=True):
-            user = db.query(User).filter(User.username==lu.strip(), User.password==lp.strip()).first()
+            # BÖLÜM 2: Veritabanında E-Posta eşleşmesi aranıyor.
+            user = db.query(User).filter(User.email==lu.strip(), User.password==lp.strip()).first()
             if user:
                 controller.set('arder_user', user.username, max_age=2592000) 
                 st.session_state.update({"logged_in": True, "username": user.username, "role": user.role})
@@ -460,8 +462,11 @@ if not st.session_state.logged_in:
         alan = st.selectbox("Birim", alanlar[role])
         st.markdown("<br>", unsafe_allow_html=True)
         if st.button("Kayıt Ol", use_container_width=True):
+            # BÖLÜM 3: Ekstra geçerli E-Posta formatı ve Mükerrer E-Posta güvenlik kontrolleri.
             if len(ru.strip())<3: st.warning("İsim çok kısa.")
-            elif db.query(User).filter(User.username==ru.strip()).first(): st.warning("Bu isim kayıtlı.")
+            elif len(rmail.strip())<5 or "@" not in rmail: st.warning("Geçerli bir e-posta adresi giriniz.")
+            elif db.query(User).filter(User.username==ru.strip()).first(): st.warning("Bu isim sistemde kayıtlı.")
+            elif db.query(User).filter(User.email==rmail.strip()).first(): st.warning("Bu e-posta adresi sistemde zaten kayıtlı.")
             else:
                 db.add(User(username=ru.strip(), password=rp.strip(), email=rmail.strip(), role=role, alan=alan, points=0, lifetime_points=0, total_assigned=0, total_completed=0))
                 db.commit(); st.success("Başarıyla kayıt olundu! Giriş sekmesinden devam edebilirsiniz.")
@@ -543,7 +548,7 @@ Dernek; ulusal ve uluslararası düzeyde gençlerin kültür, sanat, akademik ve
 2.2.5. Gerekli izinler alınmak şartıyla yardım toplama faaliyetlerinde bulunmak ve yurt içinden ve yurt dışından bağış kabul etmek,
 2.2.6. Tüzük amacının gerçekleştirilmesi için ihtiyaç duyulan gelirleri temin etmek amacıyla iktisadi, ticari ve sanayi işletmeler kurmak ve işletmek,
 2.2.7. Üyelerinin yararlanmaları ve boş zamanlarını değerlendirebilmeleri için lokal açmak, sosyal ve kültürel tesisler kurmak ve bunları tefriş etmek,
-2.2.8. Üyeleri arasında sosyal ilişkilerin geliştirilmesi ve devam ettirilmesi için yemekli toplantılar, konser, balo, tiyatro, sergi, spor, gibi eğlenceli etkinlikler düzenlemek veya üyelerinin bu tür etkinliklerden yararlanmalarını sağlamak,
+2.2.8. Üyleri arasında sosyal ilişkilerin geliştirilmesi ve devam ettirilmesi için yemekli toplantılar, konser, balo, tiyatro, sergi, spor, gibi eğlenceli etkinlikler düzenlemek veya üyelerinin bu tür etkinliklerden yararlanmalarını sağlamak,
 2.2.9. Dernek faaliyetleri için ihtiyaç duyulan taşınır, taşınmaz mal satın almak, satmak, kiralamak, kiraya vermek ve taşınmazlar üzerinde ayni hak tesis etmek,
 2.2.10. Amacın gerçekleştirilmesi için gerek görülmesi durumunda yurt içinde ve yurt dışında vakıf kurmak, federasyon kurmak veya kurulu bir federasyona katılmak, gerekli izin alınarak derneklerin kurabileceği tesisleri kurmak,
 2.2.11. Uluslararası faaliyette bulunmak, yurt dışındaki dernek veya kuruluşlara üye olmak ve bu kuruluşlarla ortak çalışmalar yapmak veya yardımlaşmak,
@@ -699,7 +704,7 @@ B. Bilanço esasında tutulacak defterler ve uyulacak esaslar aşağıdaki gibid
 B.1. (a) bendinin 1, 2 ve 3 üncü alt bentlerinde kayıtlı defterler bilanço esasında defter tutulması durumunda da tutulur.
 B.2. Yevmiye Defteri ve Büyük Defter: Bu defterlerin tutulma usulü ile kayıt şekli Vergi Usul Kanunu ile bu Kanununun Maliye Bakanlığına verdiği yetkiye istinaden yayımlanan Muhasebe Sistemi Uygulama Genel Tebliğleri esaslarına göre yapılır.
 13.3. Defterlerin Tasdiki: Dernekte, tutulması zorunlu olan defterler (Büyük Defter hariç), kullanmaya başlamadan önce il sivil toplumla ilişkiler müdürlüğüne veya notere tasdik ettirilir. Bu defterlerin kullanılmasına sayfaları bitene kadar devam edilir ve defterlerin ara tasdiki yapılmaz. Ancak, bilanço esasına göre tutulan Yevmiye Defteri'nin kullanılacağı yıldan önce gelen son ayda, her yıl yeniden tasdik ettirilmesi zorunludur.
-13.4. Gelir Tablosu ve Bilanço Düzenlenmesi: İşletme hesabı esasına göre kayıt tutulması durumunda yıl sonlarında (31 Aralık) (Dernekler Yönetmeliği EK-16'da belirtilen) "İşletme Hesabı Tablosu" düzenlenir. Bilanço esasına göre defter tutulması durumunda ise, yılsonlarında (31 Aralık), Maliye Bakanlığınca yayımlanan Muhasebe Sistemi Uygulama Genel Tebliğlerini esas alarak bilanço ve gelir tablosu düzenlenir.
+13.4. Gelir Tablosu ve Bilanço Düzenlenmesi: İşletme hesabı esasına göre kayıt tutulması durumunda yıl sonlarında (31 Aralık) (Dernekler Yönetmeli EK-16'da belirtilen) "İşletme Hesabı Tablosu" düzenlenir. Bilanço esasına göre defter tutulması durumunda ise, yılsonlarında (31 Aralık), Maliye Bakanlığınca yayımlanan Muhasebe Sistemi Uygulama Genel Tebliğlerini esas alarak bilanço ve gelir tablosu düzenlenir.
 
 **Derneğin Gelir ve Gider İşlemleri**
 **Madde 14-** Gelir ve gider belgeleri; Dernek gelirleri, (Dernekler Yönetmeliği EK- 17'de örneği bulunan) "Alındı Belgesi" ile tahsil edilir. Dernek gelirlerinin bankalar aracılığı ile tahsili halinde banka tarafından düzenlenen dekont veya hesap özeti gibi belgeler alındı belgesi yerine geçer. Dernek giderleri ise fatura, perakende satış fişi, serbest meslek makbuzu gibi harcama belgeleri ile yapılır. Ancak derneğin, Gelir Vergisi Kanunu'nun 94'üncü maddesi kapsamında bulunan ödemeleri için Vergi Usul Kanunu hükümlerine göre gider pusulası, bu kapsamda da bulunmayan ödemeleri için (Dernekler Yönetmeliği EK-13'te örneği buluna) "Gider Makbuzu" veya "Banka Dekontu" gibi belgeler harcama belgesi olarak kullanılır. Dernek tarafından kişi, kurum veya kuruluşlara yapılacak bedelsiz mal ve hizmet teslimleri (Dernekler Yönetmeliği EK-14'te örneği bulunan) "Ayni Yardım Teslim Belgesi" ile yapılır. Kişi, kurum veya kuruluşlar tarafından derneğe yapılacak bedelsiz mal ve hizmet teslimleri ise (Dernekler Yönetmeliği EK-15'te örneği bulunan) "Ayni Bağış Alındı Belgesi" ile kabul edilir. Bu belgeler; Ek-13, Ek-14 ve Ek-15'te gösterilen biçim ve ebatta, müteselsil seri ve sıra numarası taşıyan, kendinden karbonlu elli asıl ve elli koçan yaprağından meydana gelen ciltler veya elektronik sistemler ve yazı makineleri aracılığıyla yazdırılacak form veya sürekli form şeklinde bastırılır. Form veya sürekli form şeklinde bastırılacak belgelerin, belirtilen nitelikte olması zorunludur.
